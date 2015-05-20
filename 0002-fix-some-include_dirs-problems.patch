@@ -1,4 +1,4 @@
-From 843a7db0dad66ada3d87c756b2ebcb1941baf42c Mon Sep 17 00:00:00 2001
+From 7c39ae49207a202d2e3f28a10ec8565057880dee Mon Sep 17 00:00:00 2001
 From: Vincent Rabaud <vrabaud@aldebaran-robotics.com>
 Date: Tue, 19 May 2015 16:52:58 +0200
 Subject: [PATCH 2/2] fix some include_dirs problems
