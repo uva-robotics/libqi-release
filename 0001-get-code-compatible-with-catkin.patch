@@ -1,0 +1,209 @@
+From 20a69e672c44d413bf6c482a55349c2db9ddd75e Mon Sep 17 00:00:00 2001
+From: Mikael Arguedas <mikael.arguedas@gmail.com>
+Date: Wed, 13 May 2015 18:41:56 +0200
+Subject: [PATCH 1/2] get code compatible with catkin
+
+---
+ CMakeLists.txt    | 44 +++++++++++++++++---------------------------
+ src/eventloop.cpp | 31 +++++++++++++++++++------------
+ 2 files changed, 36 insertions(+), 39 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 09295a8..6484d33 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -3,10 +3,12 @@
+ ## found in the COPYING file.
+ 
+ cmake_minimum_required(VERSION 2.8)
+-project(LibQi)
+-find_package(qibuild)
+-qi_sanitize_compile_flags(HIDDEN_SYMBOLS)
++project(naoqi_libqi)
++find_package(catkin)
+ 
++catkin_package(INCLUDE_DIRS qi/detail qi compat
++   LIBRARIES qi
++)
+ 
+ include(CheckSymbolExists)
+ check_symbol_exists(_SC_HOST_NAME_MAX "unistd.h" HAVE_SC_HOST_NAME_MAX)
+@@ -44,21 +46,12 @@ endif()
+ # Remove this line to use QT if usable
+ set(WITH_QT_QTCORE OFF)
+ 
+-qi_add_optional_package(QT_QTCORE "Enable QT")
+-qi_add_optional_package(BOOST_LOCALE "Enable qi::translate")
+ option(WITH_EXAMPLES "Examples"          ON)
+ option(WITH_PERF     "Performances test" ON)
+ 
+ enable_testing()
+ include(CMakeDependentOption)
+ 
+-find_package(qiprobes)
+-qiprobes_create_probe(tp_qi
+-  src/tp_qi.in.h
+-  PROVIDER_NAME qi_qi)
+-qiprobes_instrument_files(tp_qi
+-  src/eventloop.cpp)
+-
+ set(QI_H qi/detail/clock.hxx
+          qi/detail/eventloop.hxx
+          qi/detail/future.hxx
+@@ -310,15 +303,16 @@ set(QIPERF_C
+   src/perf/measure.cpp
+ )
+ 
+-qi_create_config_h(_out qi/config.hpp.in qi/config.hpp)
+-list(APPEND QI_C ${_out})
++configure_file(qi/config.hpp.in ${CATKIN_DEVEL_PREFIX}/${CATKIN_GLOBAL_INCLUDE_DESTINATION}/qi/config.hpp)
++include_directories(${CATKIN_DEVEL_PREFIX}/include)
+ 
+ if(WITH_BOOST_LOCALE)
+   list(APPEND QI_H qi/translator.hpp)
+   list(APPEND QI_C src/translator.cpp)
+ endif()
+ 
+-qi_install_header(${QI_H} ${QITYPE_H} ${QIM_H} ${QIPERF_H} KEEP_RELATIVE_PATHS)
++install(DIRECTORY qi DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION})
++install(FILES ${CATKIN_DEVEL_PREFIX}/${CATKIN_GLOBAL_INCLUDE_DESTINATION}/qi/config.hpp DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}/qi)
+ 
+ if (WIN32)
+   list(APPEND QI_C
+@@ -360,16 +354,15 @@ endif()
+ 
+ include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
+ 
+-qi_stage_cmake(qimodule-config.cmake)
+ include(qimodule-config.cmake)
+ 
+-qi_create_lib(qi SHARED
++add_library(qi SHARED
+                  ${QI_H}     ${QI_C}
+                  ${QITYPE_H} ${QITYPE_C}
+                  ${QIM_H}    ${QIM_C}
+-                 ${QIPERF_H} ${QIPERF_C}
+-              DEPENDS BOOST BOOST_ATOMIC BOOST_DATE_TIME BOOST_THREAD BOOST_CHRONO BOOST_FILESYSTEM BOOST_LOCALE BOOST_REGEX BOOST_PROGRAM_OPTIONS ${_ssldeps}
+-              SUBMODULE tp_qi)
++            )
++find_package(Boost QUIET COMPONENTS chrono filesystem program_options regex system thread)
++target_link_libraries(qi ${Boost_LIBRARIES})
+ 
+ if (WITH_QT_QTCORE)
+   qi_use_lib(qi QT_QTCORE)
+@@ -379,19 +372,16 @@ if(WITH_BOOST_LOCALE)
+ endif()
+ 
+ if (UNIX)
+-  qi_use_lib(qi PTHREAD)
++  target_link_libraries(qi pthread)
+ endif()
+ 
+ if(UNIX AND NOT APPLE AND NOT ANDROID)
+-  qi_use_lib(qi DL RT)
++  target_link_libraries(qi dl rt)
+ endif()
+ 
+ if(WIN32)
+   qi_use_lib(qi WSOCK IPHLPAPI PSAPI WSA) #Really?
+ endif()
+ 
+-qi_stage_lib(qi INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/compat")
+-
+-add_subdirectory("examples")
+-add_subdirectory("tests")
+-add_subdirectory("bin")
++install(TARGETS qi DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
++install(FILES package.xml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+diff --git a/src/eventloop.cpp b/src/eventloop.cpp
+index 5e295bf..3f58266 100644
+--- a/src/eventloop.cpp
++++ b/src/eventloop.cpp
+@@ -17,7 +17,6 @@
+ #include <qi/getenv.hpp>
+ 
+ #include "eventloop_p.hpp"
+-#include "tp_qi.h"
+ 
+ qiLogCategory("qi.eventloop");
+ 
+@@ -253,12 +252,12 @@ namespace qi {
+     if (!erc)
+     {
+       ScopedIncDec _(_activeTask);
+-      tracepoint(qi_qi, eventloop_task_start, id);
++      //tracepoint(qi_qi, eventloop_task_start, id);
+ 
+       try
+       {
+         f();
+-        tracepoint(qi_qi, eventloop_task_stop, id);
++        //tracepoint(qi_qi, eventloop_task_stop, id);
+         p.setValue(0);
+       }
+       catch (const detail::TerminateThread& e)
+@@ -267,18 +266,18 @@ namespace qi {
+       }
+       catch (const std::exception& ex)
+       {
+-        tracepoint(qi_qi, eventloop_task_error, id);
++        //tracepoint(qi_qi, eventloop_task_error, id);
+         p.setError(ex.what());
+       }
+       catch (...)
+       {
+-        tracepoint(qi_qi, eventloop_task_error, id);
++        //tracepoint(qi_qi, eventloop_task_error, id);
+         p.setError("unknown error");
+       }
+     }
+     else
+     {
+-      tracepoint(qi_qi, eventloop_task_cancel, id);
++      //tracepoint(qi_qi, eventloop_task_cancel, id);
+       p.setCanceled();
+     }
+   }
+@@ -291,7 +290,7 @@ namespace qi {
+     qi::Promise<void> p;
+     if (delay == qi::Duration(0)) {
+       uint32_t id = ++gTaskId;
+-      tracepoint(qi_qi, eventloop_post, id, cb.target_type().name());
++      //tracepoint(qi_qi, eventloop_post, id, cb.target_type().name());
+ 
+ 
+       ++_totalTask;
+@@ -304,17 +303,25 @@ namespace qi {
+   qi::Future<void> EventLoopAsio::asyncCall(qi::Duration delay,
+       boost::function<void ()> cb)
+   {
++    static boost::system::error_code erc;
++
+     if (!_work)
+       return qi::makeFutureError<void>("Schedule attempt on destroyed thread pool");
+ 
+     uint32_t id = ++gTaskId;
+ 
+     ++_totalTask;
+-    tracepoint(qi_qi, eventloop_delay, id, cb.target_type().name(), boost::chrono::duration_cast<qi::MicroSeconds>(delay).count());
+-    boost::shared_ptr<boost::asio::steady_timer> timer = boost::make_shared<boost::asio::steady_timer>(boost::ref(_io));
+-    timer->expires_from_now(boost::chrono::duration_cast<boost::asio::steady_timer::duration>(delay));
+-    qi::Promise<void> prom(boost::bind(&boost::asio::steady_timer::cancel, timer));
+-    timer->async_wait(boost::bind(&EventLoopAsio::invoke_maybe, this, cb, id, prom, _1));
++    //tracepoint(qi_qi, eventloop_delay, id, cb.target_type().name(), boost::chrono::duration_cast<qi::MicroSeconds>(delay).count());
++    if (delay > Duration::zero())
++    {
++      boost::shared_ptr<boost::asio::steady_timer> timer = boost::make_shared<boost::asio::steady_timer>(boost::ref(_io));
++      timer->expires_from_now(boost::chrono::duration_cast<boost::asio::steady_timer::duration>(delay));
++      qi::Promise<void> prom(boost::bind(&boost::asio::steady_timer::cancel, timer));
++      timer->async_wait(boost::bind(&EventLoopAsio::invoke_maybe, this, cb, id, prom, _1));
++      return prom.future();
++    }
++    Promise<void> prom(PromiseNoop<void>);
++    _io.post(boost::bind<void>(&EventLoopAsio::invoke_maybe, this, cb, id, prom,erc));
+     return prom.future();
+   }
+ 
+-- 
+2.1.4
+
