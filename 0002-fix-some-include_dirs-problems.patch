@@ -1,4 +1,4 @@
-From 843a7db0dad66ada3d87c756b2ebcb1941baf42c Mon Sep 17 00:00:00 2001
+From b44b41ed3fd38ced554cf62e337cf2090b10812e Mon Sep 17 00:00:00 2001
 From: Vincent Rabaud <vrabaud@aldebaran-robotics.com>
 Date: Tue, 19 May 2015 16:52:58 +0200
 Subject: [PATCH 2/2] fix some include_dirs problems
@@ -33,5 +33,5 @@ index 0000000..a720060
 +include_directories(@(CATKIN_DEVEL_PREFIX)/include)
 +@[end if]@
 -- 
-2.1.4
+2.5.0
 
