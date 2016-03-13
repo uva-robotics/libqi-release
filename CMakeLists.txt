@@ -35,6 +35,7 @@ endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
 endif()
 
 if (WITH_SSL)
@@ -45,18 +46,32 @@ else()
 endif()
 
 # Remove this line to use QT if usable
-set(WITH_QT_QTCORE OFF)
+set(WITH_QT5_CORE OFF)
 
-option(WITH_EXAMPLES "Examples"          ON)
-option(WITH_PERF     "Performances test" ON)
+if(WITH_BOOST_LOCALE)
+  add_definitions(" -DWITH_BOOST_LOCALE ")
+endif()
 
 enable_testing()
 include(CMakeDependentOption)
+
+if (WITH_PROBES)
+  find_package(qiprobes)
+  qiprobes_create_probe(tp_qi
+    src/tp_qi.in.h
+    PROVIDER_NAME qi_qi)
+  qiprobes_instrument_files(tp_qi
+    src/eventloop.cpp)
+  set(_tp_qi "tp_qi")
+else()
+  set(_tp_qi "")
+endif()
 
 set(QI_H qi/detail/clock.hxx
          qi/detail/eventloop.hxx
          qi/detail/future.hxx
          qi/detail/future_fwd.hpp
+         qi/detail/futurebarrier.hpp
          qi/detail/executioncontext.hpp
          qi/detail/mpl.hpp
          qi/detail/log.hxx
@@ -71,6 +86,7 @@ set(QI_H qi/detail/clock.hxx
          qi/buffer.hpp
          qi/clock.hpp
          qi/future.hpp
+         qi/futuregroup.hpp
          qi/log/consoleloghandler.hpp
          qi/log/csvloghandler.hpp
          qi/log/fileloghandler.hpp
@@ -102,8 +118,6 @@ set(QI_C src/dlfcn.cpp
          src/bufferreader.cpp
          src/clock.cpp
          src/sdklayout.hpp
-         src/filesystem.hpp
-         src/filesystem.cpp
          src/future.cpp
          src/log.cpp
          src/log_p.hpp
@@ -131,6 +145,7 @@ set(QITYPE_H       qi/anyfunction.hpp
                    qi/signature.hpp
                    qi/property.hpp
                    qi/signal.hpp
+                   qi/signalspy.hpp
                    qi/anyvalue.hpp
                    qi/anymodule.hpp
 
@@ -152,7 +167,6 @@ set(QITYPE_H       qi/anyfunction.hpp
                    qi/type/detail/dynamicobjectbuilder.hxx
                    qi/type/detail/genericobject.hpp
                    qi/type/detail/object.hxx
-                   qi/type/detail/async.hxx
                    qi/type/detail/proxyregister.hpp
                    qi/type/detail/hasless.hxx
                    qi/type/detail/objecttypebuilder.hxx
@@ -233,7 +247,7 @@ set(QIM_H qi/api.hpp
           qi/messaging/autoservice.hpp
           qi/messaging/clientauthenticator.hpp
           qi/messaging/clientauthenticatorfactory.hpp
-          qi/messaging/details/autoservice.hxx
+          qi/messaging/detail/autoservice.hxx
           qi/messaging/gateway.hpp
           qi/messaging/serviceinfo.hpp
           qi/applicationsession.hpp
@@ -248,7 +262,12 @@ set(QIM_C src/messaging/applicationsession.cpp
           src/messaging/boundobject.hpp
           src/messaging/clientauthenticator_p.hpp
           src/messaging/clientauthenticator.cpp
+          src/messaging/gateway_p.hpp
           src/messaging/gateway.cpp
+          src/messaging/gwsdclient.hpp
+          src/messaging/gwsdclient.cpp
+          src/messaging/gwobjecthost.hpp
+          src/messaging/gwobjecthost.cpp
           src/messaging/message.hpp
           src/messaging/message.cpp
           src/messaging/messagedispatcher.hpp
@@ -285,13 +304,12 @@ set(QIM_C src/messaging/applicationsession.cpp
           src/messaging/tcptransportsocket.cpp
           src/messaging/tcptransportsocket.hpp
           src/messaging/url.cpp
-          src/messaging/serverresult.hpp
           src/registration.cpp
           )
 
 set(QIPERF_H
   qi/perf/dataperfsuite.hpp
-  qi/perf/details/dataperfsuite.hxx
+  qi/perf/detail/dataperfsuite.hxx
   qi/perf/dataperf.hpp
   qi/perf/measure.hpp
 )
@@ -365,8 +383,8 @@ add_library(qi SHARED
 find_package(Boost QUIET COMPONENTS chrono filesystem program_options regex system thread)
 target_link_libraries(qi ${Boost_LIBRARIES})
 
-if (WITH_QT_QTCORE)
-  qi_use_lib(qi QT_QTCORE)
+if (WITH_QT5_CORE)
+  qi_use_lib(qi QT5_CORE)
 endif()
 if(WITH_BOOST_LOCALE)
   qi_use_lib(qi BOOST_LOCALE)
@@ -376,6 +394,10 @@ if (UNIX)
   target_link_libraries(qi pthread)
 endif()
 
+if(ANDROID)
+  target_link_libraries(qi log)
+endif()
+
 if(UNIX AND NOT APPLE AND NOT ANDROID)
   target_link_libraries(qi dl rt)
 endif()
@@ -383,6 +405,7 @@ endif()
 if(WIN32)
   qi_use_lib(qi WSOCK IPHLPAPI PSAPI WSA) #Really?
 endif()
+
 
 install(TARGETS qi DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
 install(FILES package.xml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
