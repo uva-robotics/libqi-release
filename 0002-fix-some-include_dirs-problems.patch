@@ -1,7 +1,7 @@
-From b44b41ed3fd38ced554cf62e337cf2090b10812e Mon Sep 17 00:00:00 2001
+From de375a0f95f96b53d8dd76236739e3df97c04209 Mon Sep 17 00:00:00 2001
 From: Vincent Rabaud <vrabaud@aldebaran-robotics.com>
 Date: Tue, 19 May 2015 16:52:58 +0200
-Subject: [PATCH 2/2] fix some include_dirs problems
+Subject: [PATCH 2/3] fix some include_dirs problems
 
 ---
  CMakeLists.txt              | 3 ++-
@@ -10,7 +10,7 @@ Subject: [PATCH 2/2] fix some include_dirs problems
  create mode 100644 cmake/libqi-extras.cmake.em
 
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 6484d33..5f95c9f 100644
+index d2b75d4..be464ed 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -6,7 +6,8 @@ cmake_minimum_required(VERSION 2.8)
