@@ -3,13 +3,10 @@
 ## found in the COPYING file.
 
 cmake_minimum_required(VERSION 2.8)
-project(naoqi_libqi)
-find_package(catkin)
+project(LibQi)
+find_package(qibuild)
+qi_sanitize_compile_flags(HIDDEN_SYMBOLS)
 
-catkin_package(CFG_EXTRAS libqi-extras.cmake
-   INCLUDE_DIRS ./
-   LIBRARIES qi
-)
 
 include(CheckSymbolExists)
 check_symbol_exists(_SC_HOST_NAME_MAX "unistd.h" HAVE_SC_HOST_NAME_MAX)
@@ -35,6 +32,7 @@ endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
 endif()
 
 if (WITH_SSL)
@@ -45,18 +43,34 @@ else()
 endif()
 
 # Remove this line to use QT if usable
-set(WITH_QT_QTCORE OFF)
+set(WITH_QT5_CORE OFF)
 
-option(WITH_EXAMPLES "Examples"          ON)
-option(WITH_PERF     "Performances test" ON)
+qi_add_optional_package(QT5_CORE "Enable QT")
+qi_add_optional_package(BOOST_LOCALE "Enable usage of boost::locale")
+if(WITH_BOOST_LOCALE)
+  add_definitions(" -DWITH_BOOST_LOCALE ")
+endif()
 
 enable_testing()
 include(CMakeDependentOption)
+
+if (WITH_PROBES)
+  find_package(qiprobes)
+  qiprobes_create_probe(tp_qi
+    src/tp_qi.in.h
+    PROVIDER_NAME qi_qi)
+  qiprobes_instrument_files(tp_qi
+    src/eventloop.cpp)
+  set(_tp_qi "tp_qi")
+else()
+  set(_tp_qi "")
+endif()
 
 set(QI_H qi/detail/clock.hxx
          qi/detail/eventloop.hxx
          qi/detail/future.hxx
          qi/detail/future_fwd.hpp
+         qi/detail/futurebarrier.hpp
          qi/detail/executioncontext.hpp
          qi/detail/mpl.hpp
          qi/detail/log.hxx
@@ -71,6 +85,7 @@ set(QI_H qi/detail/clock.hxx
          qi/buffer.hpp
          qi/clock.hpp
          qi/future.hpp
+         qi/futuregroup.hpp
          qi/log/consoleloghandler.hpp
          qi/log/csvloghandler.hpp
          qi/log/fileloghandler.hpp
@@ -102,8 +117,6 @@ set(QI_C src/dlfcn.cpp
          src/bufferreader.cpp
          src/clock.cpp
          src/sdklayout.hpp
-         src/filesystem.hpp
-         src/filesystem.cpp
          src/future.cpp
          src/log.cpp
          src/log_p.hpp
@@ -131,6 +144,7 @@ set(QITYPE_H       qi/anyfunction.hpp
                    qi/signature.hpp
                    qi/property.hpp
                    qi/signal.hpp
+                   qi/signalspy.hpp
                    qi/anyvalue.hpp
                    qi/anymodule.hpp
 
@@ -152,7 +166,6 @@ set(QITYPE_H       qi/anyfunction.hpp
                    qi/type/detail/dynamicobjectbuilder.hxx
                    qi/type/detail/genericobject.hpp
                    qi/type/detail/object.hxx
-                   qi/type/detail/async.hxx
                    qi/type/detail/proxyregister.hpp
                    qi/type/detail/hasless.hxx
                    qi/type/detail/objecttypebuilder.hxx
@@ -233,7 +246,7 @@ set(QIM_H qi/api.hpp
           qi/messaging/autoservice.hpp
           qi/messaging/clientauthenticator.hpp
           qi/messaging/clientauthenticatorfactory.hpp
-          qi/messaging/details/autoservice.hxx
+          qi/messaging/detail/autoservice.hxx
           qi/messaging/gateway.hpp
           qi/messaging/serviceinfo.hpp
           qi/applicationsession.hpp
@@ -248,7 +261,12 @@ set(QIM_C src/messaging/applicationsession.cpp
           src/messaging/boundobject.hpp
           src/messaging/clientauthenticator_p.hpp
           src/messaging/clientauthenticator.cpp
+          src/messaging/gateway_p.hpp
           src/messaging/gateway.cpp
+          src/messaging/gwsdclient.hpp
+          src/messaging/gwsdclient.cpp
+          src/messaging/gwobjecthost.hpp
+          src/messaging/gwobjecthost.cpp
           src/messaging/message.hpp
           src/messaging/message.cpp
           src/messaging/messagedispatcher.hpp
@@ -285,13 +303,12 @@ set(QIM_C src/messaging/applicationsession.cpp
           src/messaging/tcptransportsocket.cpp
           src/messaging/tcptransportsocket.hpp
           src/messaging/url.cpp
-          src/messaging/serverresult.hpp
           src/registration.cpp
           )
 
 set(QIPERF_H
   qi/perf/dataperfsuite.hpp
-  qi/perf/details/dataperfsuite.hxx
+  qi/perf/detail/dataperfsuite.hxx
   qi/perf/dataperf.hpp
   qi/perf/measure.hpp
 )
@@ -304,16 +321,15 @@ set(QIPERF_C
   src/perf/measure.cpp
 )
 
-configure_file(qi/config.hpp.in ${CATKIN_DEVEL_PREFIX}/${CATKIN_GLOBAL_INCLUDE_DESTINATION}/qi/config.hpp)
-include_directories(${CATKIN_DEVEL_PREFIX}/include)
+qi_create_config_h(_out qi/config.hpp.in qi/config.hpp)
+list(APPEND QI_C ${_out})
 
 if(WITH_BOOST_LOCALE)
   list(APPEND QI_H qi/translator.hpp)
   list(APPEND QI_C src/translator.cpp)
 endif()
 
-install(DIRECTORY qi DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION})
-install(FILES ${CATKIN_DEVEL_PREFIX}/${CATKIN_GLOBAL_INCLUDE_DESTINATION}/qi/config.hpp DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}/qi)
+qi_install_header(${QI_H} ${QITYPE_H} ${QIM_H} ${QIPERF_H} KEEP_RELATIVE_PATHS)
 
 if (WIN32)
   list(APPEND QI_C
@@ -355,34 +371,45 @@ endif()
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
 
+qi_stage_cmake(qimodule-config.cmake)
 include(qimodule-config.cmake)
 
-add_library(qi SHARED
+qi_create_lib(qi SHARED
                  ${QI_H}     ${QI_C}
                  ${QITYPE_H} ${QITYPE_C}
                  ${QIM_H}    ${QIM_C}
-            )
-find_package(Boost QUIET COMPONENTS chrono filesystem program_options regex system thread)
-target_link_libraries(qi ${Boost_LIBRARIES})
+                 ${QIPERF_H} ${QIPERF_C}
+              DEPENDS ASSUME_SYSTEM_INCLUDE BOOST BOOST_ATOMIC BOOST_DATE_TIME BOOST_THREAD BOOST_CHRONO BOOST_FILESYSTEM BOOST_LOCALE BOOST_REGEX BOOST_PROGRAM_OPTIONS ${_ssldeps}
+              SUBMODULE ${_tp_qi})
 
-if (WITH_QT_QTCORE)
-  qi_use_lib(qi QT_QTCORE)
+if (WITH_QT5_CORE)
+  qi_use_lib(qi QT5_CORE)
 endif()
 if(WITH_BOOST_LOCALE)
   qi_use_lib(qi BOOST_LOCALE)
 endif()
 
 if (UNIX)
-  target_link_libraries(qi pthread)
+  qi_use_lib(qi PTHREAD)
+endif()
+
+if(ANDROID)
+  target_link_libraries(qi log)
 endif()
 
 if(UNIX AND NOT APPLE AND NOT ANDROID)
-  target_link_libraries(qi dl rt)
+  qi_use_lib(qi DL RT)
 endif()
 
 if(WIN32)
   qi_use_lib(qi WSOCK IPHLPAPI PSAPI WSA) #Really?
 endif()
 
-install(TARGETS qi DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION})
-install(FILES package.xml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+qi_stage_lib(qi INCLUDE_DIRS "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/compat")
+
+
+option(BUILD_EXAMPLES "build examples")
+if (BUILD_EXAMPLES)
+  add_subdirectory("examples")
+endif()
+add_subdirectory("tests")
