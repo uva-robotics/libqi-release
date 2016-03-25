@@ -1,3 +1,26 @@
+## naoqi_libqi (kinetic) - 2.5.0-0
+
+The packages in the `naoqi_libqi` repository were released into the `kinetic` distro by running `/usr/bin/bloom-release --rosdistro kinetic --track kinetic naoqi_libqi` on `Fri, 25 Mar 2016 00:27:55 -0000`
+
+The `naoqi_libqi` package was released.
+
+Version of package(s) in repository `naoqi_libqi`:
+
+- upstream repository: https://github.com/aldebaran/libqi.git
+- release repository: unknown
+- rosdistro version: `null`
+- old version: `null`
+- new version: `2.5.0-0`
+
+Versions of tools used:
+
+- bloom version: `0.5.21`
+- catkin_pkg version: `0.2.10`
+- rosdep version: `0.11.4`
+- rosdistro version: `0.4.5`
+- vcstools version: `0.1.38`
+
+
 ## naoqi_libqi (jade) - 2.5.0-0
 
 The packages in the `naoqi_libqi` repository were released into the `jade` distro by running `/usr/bin/bloom-release --rosdistro jade --track jade naoqi_libqi` on `Sun, 13 Mar 2016 15:52:36 -0000`
