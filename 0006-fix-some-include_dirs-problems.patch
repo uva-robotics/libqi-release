@@ -1,7 +1,7 @@
-From c7cf1b70adb0655eb4fe7a0c98d9018b16cefe00 Mon Sep 17 00:00:00 2001
+From d2df52b2eb0f4db17fc5b17c7603718d682d6af0 Mon Sep 17 00:00:00 2001
 From: Vincent Rabaud <vrabaud@aldebaran-robotics.com>
 Date: Tue, 19 May 2015 16:52:58 +0200
-Subject: [PATCH 2/8] fix some include_dirs problems
+Subject: [PATCH 6/8] fix some include_dirs problems
 
 ---
  CMakeLists.txt              | 3 ++-
