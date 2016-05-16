@@ -1,4 +1,4 @@
-From 09f08102aab46af97ed176abcec61afadfcd065e Mon Sep 17 00:00:00 2001
+From 0768b76bbc50c8363e1b360fada1589ba8eb6c90 Mon Sep 17 00:00:00 2001
 From: Mikael Arguedas <mikael.arguedas@gmail.com>
 Date: Wed, 13 May 2015 18:41:56 +0200
 Subject: [PATCH 1/8] get code compatible with catkin

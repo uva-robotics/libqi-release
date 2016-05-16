@@ -1,4 +1,4 @@
-From 4b92d1b2d7109d7aa75fd944219e5887f1c0d326 Mon Sep 17 00:00:00 2001
+From 79f70226033bcc3ad7c1116dae08181189f68a98 Mon Sep 17 00:00:00 2001
 From: Vincent Rabaud <vincent.rabaud@gmail.com>
 Date: Sun, 13 Mar 2016 18:05:53 +0100
 Subject: [PATCH 3/8] add C++11 flags to whoever uses that lib
