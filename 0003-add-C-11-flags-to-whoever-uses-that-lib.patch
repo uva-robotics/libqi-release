@@ -1,7 +1,7 @@
-From 79f70226033bcc3ad7c1116dae08181189f68a98 Mon Sep 17 00:00:00 2001
+From e85179947a37b8d6ec42ec24e29116b1ec1fae13 Mon Sep 17 00:00:00 2001
 From: Vincent Rabaud <vincent.rabaud@gmail.com>
 Date: Sun, 13 Mar 2016 18:05:53 +0100
-Subject: [PATCH 3/8] add C++11 flags to whoever uses that lib
+Subject: [PATCH 3/9] add C++11 flags to whoever uses that lib
 
 ---
  cmake/libqi-extras.cmake.em | 3 +++
