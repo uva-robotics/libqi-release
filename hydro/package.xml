@@ -4,8 +4,7 @@
   <version>:{version}</version>
   <description>Aldebaran's libqi: a core library for NAOqiOS development</description>
 
-  <maintainer email="mikael.arguedas@gmail.com">Mikael Arguedas</maintainer>
-  <maintainer email="vincent.rabaud@gmail.com">Vincent Rabaud</maintainer>
+  <maintainer email="surya.ambrose@gmail.com">Surya Ambrose</maintainer>
   <license>BSD</license>
 
   <url type="website">http://doc.aldebaran.com/libqi</url>
