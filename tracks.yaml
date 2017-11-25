@@ -116,4 +116,4 @@ tracks:
     ros_distro: lunar
     vcs_type: git
     vcs_uri: https://github.com/aldebaran/libqi.git
-    version: v2.5.0.176
+    version: :{ask}
