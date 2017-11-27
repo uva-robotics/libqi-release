@@ -18,7 +18,7 @@
 // to hack like hell to pass it in qimessaging calls: We pass along
 // pointers to TID in an unsigned long.
 
-using TID = boost::thread::id;
+typedef boost::thread::id TID;
 
 
 bool sameThread(const unsigned long& tid)
@@ -26,6 +26,29 @@ bool sameThread(const unsigned long& tid)
   boost::thread::id* id = (boost::thread::id*)(void*)tid;
   bool res = *id == boost::this_thread::get_id();
   return res;
+}
+
+qi::Promise<bool> result;
+void vSameThread(const unsigned long& tid)
+{
+  result.setValue(sameThread(tid));
+}
+
+void call_samethread(qi::AnyObject obj, qi::Promise<bool> res,
+  void* tid)
+{
+  if (!tid)
+    tid = new TID(boost::this_thread::get_id());
+  res.setValue(obj.call<bool>("sameThread", (unsigned long)tid));
+}
+
+// Calls the sameThread method in givent event loop.
+qi::Future<bool> callSameThreadIn(qi::AnyObject obj,
+  qi::EventLoop* el, void* tid)
+{
+  qi::Promise<bool> p;
+  el->post(boost::bind(call_samethread, obj, p, tid));
+  return p.future();
 }
 
 void fire_samethread(qi::AnyObject obj, void* tid)

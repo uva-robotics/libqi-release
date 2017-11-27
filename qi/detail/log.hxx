@@ -9,7 +9,6 @@
 #define _QI_DETAIL_LOG_HXX_
 
 #include <boost/noncopyable.hpp>
-#include <boost/preprocessor/cat.hpp>
 
 #if defined(NO_QI_LOG_DETAILED_CONTEXT) || defined(NDEBUG)
 #   define _qiLogDebug(...)      qi::log::LogStream(qi::LogLevel_Debug, "", __FUNCTION__, 0, __VA_ARGS__).self()
@@ -62,15 +61,9 @@
 
 /* For fast category access, we use lookup to a fixed name symbol.
  * The user is required to call qiLogCategory somewhere in scope.
- *
- * _QI_LOG_VARIABLE_SUFFIX is used to make variable name (_qi_log_category)
- * unique when using unity(blob) builds
  */
-#ifndef _QI_LOG_VARIABLE_SUFFIX
-# define _QI_LOG_VARIABLE_SUFFIX _x // dummy/default suffix
-#endif
 
-#  define _QI_LOG_CATEGORY_GET() BOOST_PP_CAT(_qi_log_category, _QI_LOG_VARIABLE_SUFFIX)
+#  define _QI_LOG_CATEGORY_GET() _qi_log_category
 
 #if defined(NO_QI_LOG_DETAILED_CONTEXT) || defined(NDEBUG)
 #  define _QI_LOG_MESSAGE(Type, Message)                        \
@@ -207,11 +200,6 @@ namespace qi {
       };
 
       QI_API boost::format getFormat(const std::string& s);
-
-      // given a set of rules in the format documented in the public header,
-      // return a list of (category name, LogLevel) tuples.
-      QI_API std::vector<std::tuple<std::string, qi::LogLevel>> parseFilterRules(
-          const std::string &rules);
     }
 
     //inlined for perf
@@ -220,7 +208,7 @@ namespace qi {
       return category && level <= category->maxLevel;
     }
 
-    using CategoryType = detail::Category*;
+    typedef detail::Category* CategoryType;
     class LogStream: public std::stringstream, boost::noncopyable
     {
     public:

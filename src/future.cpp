@@ -23,11 +23,11 @@ namespace qi {
       boost::recursive_mutex    _mutex;
       std::string               _error;
       qi::Atomic<int>           _state;
-      qi::Atomic<bool>          _cancelRequested;
+      qi::Atomic<int>           _cancelRequested;
     };
 
     struct FutureBasePrivatePoolTag { };
-    using futurebase_pool = boost::singleton_pool<FutureBasePrivatePoolTag, sizeof(FutureBasePrivate)>;
+    typedef boost::singleton_pool<FutureBasePrivatePoolTag, sizeof(FutureBasePrivate)> futurebase_pool;
 
     void* FutureBasePrivate::operator new(size_t sz)
     {
@@ -60,41 +60,41 @@ namespace qi {
 
     FutureState FutureBase::state() const
     {
-      return FutureState(_p->_state.load());
+      return FutureState(*_p->_state);
     }
 
     static bool waitFinished(FutureBasePrivate* p)
     {
-      return p->_state.load() != FutureState_Running;
+      return *p->_state != FutureState_Running;
     }
 
     FutureState FutureBase::wait(int msecs) const {
       boost::recursive_mutex::scoped_lock lock(_p->_mutex);
-      if (_p->_state.load() != FutureState_Running)
-        return FutureState(_p->_state.load());
+      if (*_p->_state != FutureState_Running)
+        return FutureState(*_p->_state);
       if (msecs == FutureTimeout_Infinite)
         _p->_cond.wait(lock, boost::bind(&waitFinished, _p));
       else if (msecs > 0)
         _p->_cond.wait_for(lock, qi::MilliSeconds(msecs),
             boost::bind(&waitFinished, _p));
       // msecs <= 0 : do nothing just return the state
-      return FutureState(_p->_state.load());
+      return FutureState(*_p->_state);
     }
 
     FutureState FutureBase::wait(qi::Duration duration) const {
       boost::recursive_mutex::scoped_lock lock(_p->_mutex);
-      if (_p->_state.load() != FutureState_Running)
-        return FutureState(_p->_state.load());
+      if (*_p->_state != FutureState_Running)
+        return FutureState(*_p->_state);
       _p->_cond.wait_for(lock, duration, boost::bind(&waitFinished, _p));
-      return FutureState(_p->_state.load());
+      return FutureState(*_p->_state);
     }
 
     FutureState FutureBase::wait(qi::SteadyClock::time_point timepoint) const {
       boost::recursive_mutex::scoped_lock lock(_p->_mutex);
-      if (_p->_state.load() != FutureState_Running)
-        return FutureState(_p->_state.load());
+      if (*_p->_state != FutureState_Running)
+        return FutureState(*_p->_state);
       _p->_cond.wait_until(lock, timepoint, boost::bind(&waitFinished, _p));
-      return FutureState(_p->_state.load());
+      return FutureState(*_p->_state);
     }
 
     void FutureBase::reportValue() {
@@ -129,38 +129,38 @@ namespace qi {
     }
 
     bool FutureBase::isFinished() const {
-      FutureState v = FutureState(_p->_state.load());
+      FutureState v = FutureState(*_p->_state);
       return v == FutureState_FinishedWithValue || v == FutureState_FinishedWithError || v == FutureState_Canceled;
     }
 
     bool FutureBase::isRunning() const {
-      return _p->_state.load() == FutureState_Running;
+      return *_p->_state == FutureState_Running;
     }
 
     bool FutureBase::isCanceled() const {
-      return _p->_state.load() == FutureState_Canceled;
+      return *_p->_state == FutureState_Canceled;
     }
 
     bool FutureBase::isCancelRequested() const {
-      return _p->_cancelRequested.load();
+      return *_p->_cancelRequested;
     }
 
     bool FutureBase::hasError(int msecs) const {
       if (wait(msecs) == FutureState_Running)
         throw FutureException(FutureException::ExceptionState_FutureTimeout);
-      return _p->_state.load() == FutureState_FinishedWithError;
+      return *_p->_state == FutureState_FinishedWithError;
     }
 
     bool FutureBase::hasValue(int msecs) const {
       if (wait(msecs) == FutureState_Running)
         throw FutureException(FutureException::ExceptionState_FutureTimeout);
-      return _p->_state.load() == FutureState_FinishedWithValue;
+      return *_p->_state == FutureState_FinishedWithValue;
     }
 
     const std::string &FutureBase::error(int msecs) const {
       if (wait(msecs) == FutureState_Running)
         throw FutureException(FutureException::ExceptionState_FutureTimeout);
-      if (_p->_state.load() != FutureState_FinishedWithError)
+      if (*_p->_state != FutureState_FinishedWithError)
         throw FutureException(FutureException::ExceptionState_FutureHasNoError);
       return _p->_error;
     }

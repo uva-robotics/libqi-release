@@ -15,7 +15,7 @@
 namespace qi
 {
 
-  using CapabilityMap = std::map<std::string, AnyValue>;
+  typedef std::map<std::string, AnyValue> CapabilityMap;
 
   class QI_API NullClientAuthenticatorFactory : public ClientAuthenticatorFactory
   {

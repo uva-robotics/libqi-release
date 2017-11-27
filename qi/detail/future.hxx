@@ -102,7 +102,7 @@ namespace detail {
     template <typename AF>
     static boost::function<void(const Future<T>&)> makeFunc(AF&& func, const qi::Promise<R>& promise)
     {
-      QI_ASSERT(false && "unreachable code");
+      assert(false && "unreachable code");
       return {};
     }
   };
@@ -187,7 +187,7 @@ namespace detail {
     template <typename AF>
     static boost::function<void(const Future<T>&)> makeFunc(AF&& func, const qi::Promise<R>& promise)
     {
-      QI_ASSERT(false && "unreachable code");
+      assert(false && "unreachable code");
       return {};
     }
   };
@@ -197,13 +197,6 @@ namespace detail {
   template <typename T>
   template <typename R, typename AF>
   inline Future<R> Future<T>::thenR(FutureCallbackType type, AF&& func)
-  {
-    return thenRImpl<R>(type, std::forward<AF>(func));
-  }
-
-  template <typename T>
-  template <typename R, typename AF>
-  inline Future<R> Future<T>::thenRImpl(FutureCallbackType type, AF&& func)
   {
     boost::weak_ptr<detail::FutureBaseTyped<T> > weakp(_p);
     qi::Promise<R> promise([weakp](const qi::Promise<R>&){
@@ -236,13 +229,6 @@ namespace detail {
   template <typename T>
   template <typename R, typename AF>
   inline Future<R> Future<T>::andThenR(FutureCallbackType type, AF&& func)
-  {
-    return andThenRImpl<R>(type, std::forward(func));
-  }
-
-  template <typename T>
-  template <typename R, typename AF>
-  inline Future<R> Future<T>::andThenRImpl(FutureCallbackType type, AF&& func)
   {
     boost::weak_ptr<detail::FutureBaseTyped<T> > weakp(_p);
     qi::Promise<R> promise([weakp](const qi::Promise<R>&){
@@ -431,7 +417,7 @@ namespace detail {
     void FutureBaseTyped<T>::setBroken(qi::Future<T>& future)
     {
       boost::recursive_mutex::scoped_lock lock(mutex());
-      QI_ASSERT(isRunning());
+      assert(isRunning());
 
       reportError("Promise broken (all promises are destroyed)");
       callCbNotify(future);
@@ -456,7 +442,7 @@ namespace detail {
 
     template <typename T>
     void FutureBaseTyped<T>::connect(qi::Future<T> future,
-                                  const boost::function<void(qi::Future<T>)>& s,
+                                  const boost::function<void(qi::Future<T>&)>& s,
                                   FutureCallbackType type)
     {
       if (state() == FutureState_None)
@@ -607,7 +593,7 @@ namespace detail {
   namespace detail
   {
     template<typename FT, typename PT, typename CONV>
-    void futureAdapter(const Future<FT>& f, Promise<PT> p, CONV converter)
+    void futureAdapter(Future<FT>& f, Promise<PT> p, CONV converter)
     {
       if (f.hasError())
         p.setError(f.error());
@@ -664,7 +650,7 @@ namespace detail {
   {
     p.setup(boost::bind(&detail::futureCancelAdapter<AnyReference>,
           boost::weak_ptr<detail::FutureBaseTyped<AnyReference> >(f._p)));
-    f.connect(boost::function<void(const qi::Future<AnyReference>&)>(
+    f.connect(boost::function<void(qi::Future<AnyReference>&)>(
           boost::bind(&detail::futureAdapter<R>, _1, p)),
         FutureCallbackType_Sync);
   }

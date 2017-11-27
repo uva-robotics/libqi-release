@@ -195,8 +195,8 @@ qi::Future<SignalLink> StaticObjectTypeBase::connect(void* instance, AnyObject c
   if (id == SignalBase::invalidSignalLink)
     return qi::Future<SignalLink>(id);
   SignalLink link = ((SignalLink)event << 32) + id;
-  QI_ASSERT(link >> 32 == event);
-  QI_ASSERT((link & 0xFFFFFFFF) == id);
+  assert(link >> 32 == event);
+  assert((link & 0xFFFFFFFF) == id);
   qiLogDebug() << "Connect " << event <<' ' << id << ' ' << link;
   return qi::Future<SignalLink>(link);
 }
@@ -231,10 +231,11 @@ qi::Future<AnyValue> StaticObjectTypeBase::property(void* instance, AnyObject co
   ExecutionContext* ec = getExecutionContext(instance, context);
   if (ec)
     return ec->async([p]{
-          return p->value().async();
+          // TODO make this async when setValue returns a futuresync
+          return p->value();
         });
   else
-    return p->value();
+    return qi::Future<AnyValue>(p->value());
 }
 
 static void setPropertyValue(PropertyBase* property, AnyValue value)

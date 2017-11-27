@@ -14,15 +14,17 @@ template<typename M> class MapTypeInterfaceImpl:
 public MapTypeInterface
 {
 public:
-  using MethodsImpl = DefaultTypeImplMethods<M, TypeByPointerPOD<M>>;
+  typedef DefaultTypeImplMethods<M,
+                               TypeByPointerPOD<M>
+                               > MethodsImpl;
   MapTypeInterfaceImpl();
-  TypeInterface* elementType() override;
-  TypeInterface* keyType() override;
-  size_t size(void* storage) override;
-  AnyIterator begin(void* storage) override;
-  AnyIterator end(void* storage) override;
-  void insert(void** storage, void* keyStorage, void* valueStorage) override;
-  AnyReference element(void** storage, void* keyStorage, bool autoInsert) override;
+  virtual TypeInterface* elementType();
+  virtual TypeInterface* keyType();
+  virtual size_t size(void* storage);
+  virtual AnyIterator begin(void* storage);
+  virtual AnyIterator end(void* storage);
+  virtual void insert(void** storage, void* keyStorage, void* valueStorage);
+  virtual AnyReference element(void** storage, void* keyStorage, bool autoInsert);
   _QI_BOUNCE_TYPE_METHODS(MethodsImpl);
   TypeInterface* _keyType;
   TypeInterface* _elementType;

@@ -110,7 +110,7 @@ namespace qi
 
       template <typename... Args>
       // decltype(this->_f(std::forward<Args>(args)...)) does not work on vs2013 \o/
-      auto operator()(Args&&... args) -> decltype(std::declval<F>()(std::forward<Args>(args)...))
+      auto operator()(Args&&... args) const -> decltype(std::declval<F>()(std::forward<Args>(args)...))
       {
         auto s = _wptr.lock();
         if (s)
@@ -146,11 +146,11 @@ namespace qi
       static const bool is_async = true;
       template <typename F>
       using wrap_type = decltype(
-          std::declval<T>()->stranded(std::declval<typename std::decay<F>::type>()));
+          std::declval<T>()->strand()->schedulerFor(std::declval<typename std::decay<F>::type>()));
       template <typename F>
       static wrap_type<F> wrap(const T& arg, F&& func, boost::function<void()> onFail)
       {
-        return arg->stranded(std::forward<F>(func), std::move(onFail));
+        return arg->strand()->schedulerFor(std::forward<F>(func), std::move(onFail));
       }
     };
 
@@ -305,8 +305,7 @@ namespace qi
   }
 
   template <typename RF, typename AF, typename Arg0, typename... Args>
-  QI_API_DEPRECATED_MSG(Use 'bindWithFallback' without explicit template method signature)
-  typename std::enable_if<std::is_function<RF>::value, boost::function<RF>>::type
+  QI_API_DEPRECATED typename std::enable_if<std::is_function<RF>::value, boost::function<RF>>::type
   bindWithFallback(boost::function<void()> onFail, AF&& fun, Arg0&& arg0, Args&&... args)
   {
     using Transform = detail::BindTransform<Arg0>;
@@ -315,16 +314,14 @@ namespace qi
     return Transform::wrap(arg0, std::move(f), std::move(onFail));
   }
   template <typename RF, typename AF, typename Arg0, typename... Args>
-  QI_API_DEPRECATED_MSG(Use 'bindSilent' without explicit template method signature)
-  typename std::enable_if<std::is_function<RF>::value, boost::function<RF>>::type bindSilent(AF&& fun,
+  QI_API_DEPRECATED typename std::enable_if<std::is_function<RF>::value, boost::function<RF>>::type bindSilent(AF&& fun,
                                                                                              Arg0&& arg0,
                                                                                              Args&&... args)
   {
     return bindWithFallback<RF, AF>({}, std::forward<AF>(fun), std::forward<Arg0>(arg0), std::forward<Args>(args)...);
   }
   template <typename RF, typename AF, typename Arg0, typename... Args>
-  QI_API_DEPRECATED_MSG(Use 'bind' without explicit template method signature)
-  typename std::enable_if<std::is_function<RF>::value, boost::function<RF>>::type bind(AF&& fun,
+  QI_API_DEPRECATED typename std::enable_if<std::is_function<RF>::value, boost::function<RF>>::type bind(AF&& fun,
                                                                                        Arg0&& arg0,
                                                                                        Args&&... args)
   {

@@ -7,13 +7,6 @@
 
 static const int qicli_call_cmd_style = po::command_line_style::unix_style ^ po::command_line_style::allow_short;
 
-template <typename MapType, typename KeyType>
-bool hasItem(const MapType& map, const KeyType& key)
-{
-  using namespace std;
-  return map.find(key) != end(map);
-}
-
 int subCmd_info(int argc, char **argv, qi::ApplicationSession& app)
 {
   po::options_description     desc("Usage: qicli info [<ServicePattern>...]");
@@ -55,7 +48,7 @@ int subCmd_info(int argc, char **argv, qi::ApplicationSession& app)
     serviceList.push_back("*");
 
   SessionHelper session(app, qi::JsonOption_None);
-  session.info(serviceList, details, hasItem(vm, "hidden"), hasItem(vm, "show-doc"), hasItem(vm, "raw-signature"), zOpt);
+  session.info(serviceList, details, vm.count("hidden"), vm.count("show-doc"), vm.count("raw-signature"), zOpt);
   return 0;
 }
 
@@ -93,7 +86,7 @@ int subCmd_call(int argc, char **argv, qi::ApplicationSession& app)
      prettyprint |= qi::JsonOption_Expand;
 
   SessionHelper session(app, prettyprint);
-  session.call(fullName, argList, hasItem(vm, "hidden"), hasItem(vm, "json"), hasItem(vm, "continue"), callCount);
+  session.call(fullName, argList, vm.count("hidden"), vm.count("json"), vm.count("continue"), callCount);
   return 0;
 }
 
@@ -126,10 +119,10 @@ int subCmd_post(int argc, char **argv, qi::ApplicationSession& app)
   {
     if (argList.empty() || argList.size() > 1)
       throw std::runtime_error("bad number of argument, almemory events only accept one argument");
-   session.postOnAlmemory(fullName, argList[0], hasItem(vm, "json"));
+   session.postOnAlmemory(fullName, argList[0], vm.count("json"));
   }
   else
-    session.post(fullName, argList, hasItem(vm, "hidden"), hasItem(vm, "json"));
+    session.post(fullName, argList, vm.count("hidden"), vm.count("json"));
   return 0;
 }
 
@@ -155,7 +148,7 @@ int subCmd_get(int argc, char **argv, qi::ApplicationSession& app)
 
   if (patternList.empty())
       patternList.push_back("*.*");
-  session.get(patternList, hasItem(vm, "hidden"), hasItem(vm, "continue"));
+  session.get(patternList, vm.count("hidden"), vm.count("continue"));
   return 0;
 }
 
@@ -188,7 +181,7 @@ int subCmd_set(int argc, char **argv, qi::ApplicationSession& app)
   argList.pop_back();
 
   SessionHelper session(app, qi::JsonOption_None);
-  session.set(argList, jsonValue, hasItem(vm, "hidden"), hasItem(vm, "json"), hasItem(vm, "continue"));
+  session.set(argList, jsonValue, vm.count("hidden"), vm.count("json"), vm.count("continue"));
   return 0;
 }
 
@@ -222,9 +215,9 @@ int subCmd_watch(int argc, char **argv, qi::ApplicationSession& app)
       patternList.push_back("*.*");
   }
   if (vm.count("almemory"))
-    session.watchAlmemory(patternList, hasItem(vm, "time"));
+    session.watchAlmemory(patternList, vm.count("time"));
   else
-    session.watch(patternList, hasItem(vm, "time"), hasItem(vm, "hidden"), hasItem(vm, "continue"));
+    session.watch(patternList, vm.count("time"), vm.count("hidden"), vm.count("continue"));
   ::getchar();
   return 0;
 }

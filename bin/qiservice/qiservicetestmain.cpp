@@ -82,8 +82,8 @@ std::string reply(const std::string &msg, const float &value) {
   return ss.str();
 }
 
-using VS = std::vector<std::string>;
-using MSM = std::map<std::string, VS>;
+typedef std::vector<std::string> VS;
+typedef std::map<std::string, VS> MSM;
 
 VS replyVector() {
   VS ret;
@@ -187,8 +187,7 @@ int main(int argc, char *argv[])
     app.startSession();
 
     app.session()->listen("tcp://0.0.0.0:0");
-    session->setIdentity(qi::path::findData("qi", "server.key"),
-                         qi::path::findData("qi", "server.crt"));
+    session->setIdentity("tests/server.key", "tests/server.crt");
     try {
       app.session()->listen("tcps://0.0.0.0:0");
     } catch (std::runtime_error &) {

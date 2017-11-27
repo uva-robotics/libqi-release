@@ -114,7 +114,7 @@ namespace qi {
     }
   }
 
-  using TypeFactory = std::map<TypeInfo, TypeInterface*>;
+  typedef std::map<TypeInfo, TypeInterface*> TypeFactory;
   static TypeFactory& typeFactory()
   {
     static TypeFactory* res = nullptr;
@@ -122,7 +122,7 @@ namespace qi {
     return *res;
   }
 
-  using FallbackTypeFactory = std::map<std::string, TypeInterface*>;
+  typedef std::map<std::string, TypeInterface*> FallbackTypeFactory;
   static FallbackTypeFactory& fallbackTypeFactory()
   {
     static FallbackTypeFactory* res = nullptr;
@@ -736,12 +736,12 @@ namespace qi {
     }
     friend TypeInterface* makeListIteratorType(TypeInterface*);
   public:
-    AnyReference dereference(void* storage) override
+    AnyReference dereference(void* storage)
     {
       std::vector<void*>::iterator& ptr = *(std::vector<void*>::iterator*)ptrFromStorage(&storage);
       return AnyReference(_elementType, *ptr);
     }
-    const TypeInfo& info() override
+    const TypeInfo& info()
     {
       return _info;
     }
@@ -842,7 +842,7 @@ namespace qi {
     {
       return _info;
     }
-    using Methods = DefaultTypeImplMethods<std::vector<void*>, TypeByPointerPOD<std::vector<void*>>>;
+    typedef DefaultTypeImplMethods<std::vector<void*>, TypeByPointerPOD<std::vector<void*> > > Methods;
     void* initializeStorage(void* ptr=0) { return Methods::initializeStorage(ptr); }
     void* ptrFromStorage(void**s)        { return Methods::ptrFromStorage(s); }
 
@@ -936,9 +936,9 @@ namespace qi {
     friend TypeInterface* makeTupleType(const std::vector<TypeInterface*>&, const std::string&, const std::vector<std::string>&);
 
   public:
-    std::vector<TypeInterface*> memberTypes() override { return _types;}
+    virtual std::vector<TypeInterface*> memberTypes() { return _types;}
 
-    void* get(void* storage, unsigned int index) override
+    virtual void* get(void* storage, unsigned int index)
     {
       std::vector<void*>& ptr = *(std::vector<void*>*)ptrFromStorage(&storage);
       if (ptr.size() < index +1)
@@ -946,7 +946,7 @@ namespace qi {
       return ptr[index];
     }
 
-    void set(void** storage, unsigned int index, void* valStorage) override
+    virtual void set(void** storage, unsigned int index, void* valStorage)
     {
       std::vector<void*>& ptr = *(std::vector<void*>*)ptrFromStorage(storage);
       if (ptr.size() < index +1)
@@ -956,12 +956,12 @@ namespace qi {
       ptr[index] = _types[index]->clone(valStorage);
     }
 
-    const TypeInfo& info() override
+    const TypeInfo& info()
     {
       return _info;
     }
 
-    void* clone(void* storage) override
+    virtual void* clone(void* storage)
     {
       std::vector<void*>& src = *(std::vector<void*>*)ptrFromStorage(&storage);
       void* result = initializeStorage();
@@ -970,7 +970,7 @@ namespace qi {
       return result;
     }
 
-    void destroy(void* storage) override
+    virtual void destroy(void* storage)
     { // destroy elements that have been set
       std::vector<void*>& ptr = *(std::vector<void*>*)ptrFromStorage(&storage);
       for (unsigned i=0; i<ptr.size(); ++i)
@@ -980,8 +980,7 @@ namespace qi {
       Methods::destroy(storage);
     }
 
-    void* initializeStorage(void* ptr=0) override
-    {
+    void* initializeStorage(void* ptr=0) {
       std::vector<void*> *ret = (std::vector<void*>*)Methods::initializeStorage(ptr);
       if (ptr)
       {
@@ -998,7 +997,7 @@ namespace qi {
       return ret;
     }
 
-    void* ptrFromStorage(void**s) override { return Methods::ptrFromStorage(s);}
+    virtual void* ptrFromStorage(void**s) { return Methods::ptrFromStorage(s);}
 
     std::vector<void*>& backend(void* storage)
     {
@@ -1006,15 +1005,15 @@ namespace qi {
       return ptr;
     }
 
-    std::vector<std::string> elementsName() override {
+    virtual std::vector<std::string> elementsName() {
       return _elementName;
     }
 
-    std::string className() override {
+    virtual std::string className() {
       return _className;
     }
 
-    bool less(void* a, void* b) override { return Methods::less(a, b);}
+    bool less(void* a, void* b) { return Methods::less(a, b);}
 
   public:
     std::string              _className;
@@ -1022,7 +1021,7 @@ namespace qi {
     std::vector<std::string> _elementName;
     std::string              _name;
     TypeInfo                 _info;
-    using Methods = DefaultTypeImplMethods<std::vector<void*>, TypeByPointerPOD<std::vector<void*>>>;
+    typedef DefaultTypeImplMethods<std::vector<void*>, TypeByPointerPOD<std::vector<void*> > > Methods;
   };
 
   AnyReference makeGenericTuple(const AnyReferenceVector& values)
@@ -1049,7 +1048,7 @@ namespace qi {
 
 
   // element of map is of type _pairType, see below
-  using DefaultMapStorage = std::map<AnyReference, void*>;
+  typedef std::map<AnyReference, void*> DefaultMapStorage;
 
   // Default map, using a vector<pair<void*, void*> > as storage
   static TypeInterface* makeMapIteratorType(TypeInterface* kt);
@@ -1068,7 +1067,7 @@ namespace qi {
     }
     friend TypeInterface* makeMapIteratorType(TypeInterface* kt);
   public:
-    AnyReference dereference(void* storage) override
+    AnyReference dereference(void* storage)
     {
       /* Result is a pair<GV, void*>
        * and we must return something we store, pretending it is of
@@ -1081,13 +1080,13 @@ namespace qi {
         ptrFromStorage(&storage);
       return AnyReference(_elementType, it->second);
     }
-    void next(void** storage) override
+    void next(void** storage)
     {
       DefaultMapStorage::iterator& ptr = *(DefaultMapStorage::iterator*)
         ptrFromStorage(storage);
       ++ptr;
     }
-    bool equals(void* s1, void* s2) override
+    bool equals(void* s1, void* s2)
     {
       DefaultMapStorage::iterator& p1 = *(DefaultMapStorage::iterator*)
         ptrFromStorage(&s1);
@@ -1095,11 +1094,11 @@ namespace qi {
         ptrFromStorage(&s2);
       return p1 == p2;
     }
-    const TypeInfo& info() override
+    const TypeInfo& info()
     {
       return _info;
     }
-    using Impl = DefaultTypeImplMethods<DefaultMapStorage::iterator, TypeByPointerPOD<DefaultMapStorage::iterator>>;
+    typedef DefaultTypeImplMethods<DefaultMapStorage::iterator, TypeByPointerPOD<DefaultMapStorage::iterator> > Impl;
     _QI_BOUNCE_TYPE_METHODS_NOINFO(Impl);
     TypeInterface* _elementType;
     std::string _name;
@@ -1109,7 +1108,7 @@ namespace qi {
   // We want exactly one instance per element type
   static TypeInterface* makeMapIteratorType(TypeInterface* te)
   {
-    using Map = std::map<TypeInfo, TypeInterface*>;
+    typedef std::map<TypeInfo, TypeInterface*> Map;
     static boost::mutex* mutex = nullptr;
     QI_THREADSAFE_NEW(mutex);
     boost::mutex::scoped_lock lock(*mutex);
@@ -1149,19 +1148,19 @@ namespace qi {
       kvtype.push_back(_keyType);
       kvtype.push_back(_elementType);
       _pairType = static_cast<DefaultTupleType*>(makeTupleType(kvtype));
-      QI_ASSERT(dynamic_cast<DefaultTupleType*>(_pairType));
+      assert(dynamic_cast<DefaultTupleType*>(_pairType));
     }
     friend TypeInterface* makeMapType(TypeInterface* kt, TypeInterface* et);
   public:
-    TypeInterface* elementType() override
+    TypeInterface* elementType()
     {
       return _elementType;
     }
-    TypeInterface* keyType () override
+    TypeInterface* keyType ()
     {
       return _keyType;
     }
-    AnyIterator begin(void* storage) override
+    AnyIterator begin(void* storage)
     {
       DefaultMapStorage& ptr = *(DefaultMapStorage*)ptrFromStorage(&storage);
       DefaultMapStorage::iterator it = ptr.begin();
@@ -1169,7 +1168,7 @@ namespace qi {
       val = AnyReference(makeMapIteratorType(_pairType), val.rawValue());
       return AnyIterator(val);
     }
-    AnyIterator end(void* storage) override
+    AnyIterator end(void* storage)
     {
       DefaultMapStorage& ptr = *(DefaultMapStorage*)ptrFromStorage(&storage);
       DefaultMapStorage::iterator it = ptr.end();
@@ -1199,7 +1198,7 @@ namespace qi {
       return value;
     }
 
-    void insert(void** storage, void* keyStorage, void* valueStorage) override
+    void insert(void** storage, void* keyStorage, void* valueStorage)
     {
       DefaultMapStorage& ptr = *(DefaultMapStorage*)ptrFromStorage(storage);
       DefaultMapStorage::iterator i = ptr.find(AnyReference(_keyType, keyStorage));
@@ -1209,7 +1208,7 @@ namespace qi {
         // But this is not any tuple, we know it's a DefaultTuple
         // So we need to hack.
         std::vector<void*>& elem = _pairType->backend(i->second);
-        QI_ASSERT(elem.size() == 2);
+        assert(elem.size() == 2);
         _elementType->destroy(elem[1]);
         elem[1] = AnyReference(_elementType, valueStorage).clone().rawValue();
       }
@@ -1219,7 +1218,7 @@ namespace qi {
       }
     }
 
-    AnyReference element(void** pstorage, void* keyStorage, bool autoInsert) override
+    AnyReference element(void** pstorage, void* keyStorage, bool autoInsert)
     {
       DefaultMapStorage& ptr = *(DefaultMapStorage*) ptrFromStorage(pstorage);
       DefaultMapStorage::iterator i = ptr.find(AnyReference(_keyType, keyStorage));
@@ -1233,12 +1232,12 @@ namespace qi {
       return _insert(ptr, keyStorage, _elementType->initializeStorage(), false);
     }
 
-    size_t size(void* storage) override
+    size_t size(void* storage)
     {
       DefaultMapStorage& ptr = *(DefaultMapStorage*) ptrFromStorage(&storage);
       return ptr.size();
     }
-    void destroy(void* storage) override
+    void destroy(void* storage)
     {
       DefaultMapStorage& ptr = *(DefaultMapStorage*)ptrFromStorage(&storage);
       for (DefaultMapStorage::iterator it = ptr.begin(); it != ptr.end(); ++it)
@@ -1248,7 +1247,7 @@ namespace qi {
       }
       Methods::destroy(storage);
     }
-    void* clone(void* storage) override
+    void* clone(void* storage)
     {
       void* result = initializeStorage();
       DefaultMapStorage& src = *(DefaultMapStorage*)ptrFromStorage(&storage);
@@ -1262,14 +1261,14 @@ namespace qi {
       }
       return result;
     }
-    const TypeInfo& info() override
+    const TypeInfo& info()
     {
       return _info;
     }
-    using Methods = DefaultTypeImplMethods<DefaultMapStorage, TypeByPointerPOD<DefaultMapStorage>>;
-    void* initializeStorage(void* ptr=0) override { return Methods::initializeStorage(ptr);}
-    void* ptrFromStorage(void**s) override { return Methods::ptrFromStorage(s);}
-    bool less(void* a, void* b) override { return Methods::less(a, b);}
+    typedef DefaultTypeImplMethods<DefaultMapStorage, TypeByPointerPOD<DefaultMapStorage> > Methods;
+    void* initializeStorage(void* ptr=0) { return Methods::initializeStorage(ptr);}   \
+    virtual void* ptrFromStorage(void**s) { return Methods::ptrFromStorage(s);}
+    bool less(void* a, void* b) { return Methods::less(a, b);}
     TypeInterface* _keyType;
     TypeInterface* _elementType;
     DefaultTupleType* _pairType;
@@ -1285,7 +1284,7 @@ namespace qi {
     QI_THREADSAFE_NEW(mutex);
     boost::mutex::scoped_lock lock(*mutex);
 
-    using Map = std::map<std::pair<TypeInfo, TypeInfo>, MapTypeInterface*>;
+    typedef std::map<std::pair<TypeInfo, TypeInfo>, MapTypeInterface*> Map;
     static Map * map = nullptr;
     if (!map)
       map = new Map();
@@ -1351,7 +1350,7 @@ namespace qi {
   //TODO: not threadsafe
   TypeInterface* makeTupleType(const std::vector<TypeInterface*>& types, const std::string &name, const std::vector<std::string>& elementNames)
   {
-    using Map = std::map<InfosKey, StructTypeInterface*>;
+    typedef std::map<InfosKey, StructTypeInterface*> Map;
     static boost::mutex* mutex;
     QI_THREADSAFE_NEW(mutex);
     boost::mutex::scoped_lock lock(*mutex);
@@ -1369,7 +1368,7 @@ namespace qi {
     else
     {
       StructTypeInterface* res = it->second;
-      QI_ASSERT(res->memberTypes().size() == types.size());
+      assert(res->memberTypes().size() == types.size());
       return res;
     }
   }
@@ -1439,7 +1438,7 @@ namespace qi {
     QI_THREADSAFE_NEW(m);
     return *m;
   }
-  using RegisterStructMap = std::map<std::string, TypeInterface*>;
+  typedef std::map<std::string, TypeInterface*> RegisterStructMap;
   static RegisterStructMap& registerStructMap()
   {
     // protected by lock above

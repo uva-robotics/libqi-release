@@ -45,20 +45,20 @@ namespace qi {
     */
     int propertyId(const std::string& name) const;
 
-    using MethodMap = std::map<unsigned int, MetaMethod>;
+    typedef std::map<unsigned int, MetaMethod> MethodMap;
     /**
     *   @return The map of all the methods.
     */
     MethodMap methodMap() const;
 
     //not called signals because it conflict with Qt keywords :S
-    using SignalMap = std::map<unsigned int, MetaSignal>;
+    typedef std::map<unsigned int, MetaSignal> SignalMap;
     /**
     *   @return The map of all the signals.
     */
     SignalMap signalMap() const;
 
-    using PropertyMap = std::map<unsigned int, MetaProperty>;
+    typedef std::map<unsigned int, MetaProperty> PropertyMap;
     /**
     *   @return The map of all the properties.
     */
@@ -109,7 +109,7 @@ namespace qi {
     *   @return A vector containing all the overloaded version of the method.
     */
     std::vector<MetaMethod> findMethod(const std::string &name) const;
-    using CompatibleMethod = std::pair<MetaMethod, float>;
+    typedef std::pair<MetaMethod, float> CompatibleMethod;
     /** Find all the methods compatible with nameOrSignature. If no
     *   signature is specified, the method relies on findMethod.
     *   @param nameOrSignature Either the name or the signature of the method.

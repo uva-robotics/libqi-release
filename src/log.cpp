@@ -4,7 +4,6 @@
  * found in the COPYING file.
  */
 
-#include <qi/assert.hpp>
 #include <qi/log.hpp>
 #include "log_p.hpp"
 #include <qi/os.hpp>
@@ -24,11 +23,13 @@
 #include <boost/unordered_map.hpp>
 #include <boost/algorithm/string.hpp>
 
-#include <boost/lockfree/queue.hpp>
+#ifndef ANDROID
+# include <boost/lockfree/queue.hpp>
+#endif
 #include <boost/function.hpp>
 
 #ifdef ANDROID
-# include <qi/log/androidloghandler.hpp>
+# include <android/log.h>
 #endif
 
 #ifndef _WIN32
@@ -206,7 +207,7 @@ namespace qi {
 
   namespace log {
 
-    using privateLog = struct sPrivateLog
+    typedef struct sPrivateLog
     {
       qi::LogLevel               _logLevel;
       char                       _category[CAT_SIZE];
@@ -216,7 +217,7 @@ namespace qi {
       char                       _log[LOG_SIZE];
       qi::Clock::time_point       _date;
       qi::SystemClock::time_point _systemDate;
-    };
+    } privateLog;
 
     class Log
     {
@@ -261,9 +262,11 @@ namespace qi {
       bool                       SyncLog;
       bool                       AsyncLogInit;
 
+#ifndef ANDROID
       boost::lockfree::queue<privateLog*>     logs;
+#endif
 
-      using LogHandlerMap = std::map<std::string, Handler>;
+      typedef std::map<std::string, Handler> LogHandlerMap;
       LogHandlerMap logHandlers;
 
       qi::Atomic<int> nextIndex;
@@ -292,7 +295,7 @@ namespace qi {
     static std::vector<GlobRule> _glGlobRules;
 
     // categories must be accessible at static init: cannot go in Log class
-    using CategoryMap = std::map<std::string, detail::Category*>;
+    typedef std::map<std::string, detail::Category*> CategoryMap;
     static CategoryMap* _glCategories = nullptr;
     inline CategoryMap& _categories()
     {
@@ -312,59 +315,12 @@ namespace qi {
 
     static int                    _glContext = 0;
     static bool                   _glInit    = false;
+    static ConsoleLogHandler     *_glConsoleLogHandler;
     static LogColor               _glColorWhen = LogColor_Auto;
 
-    static Log                   *LogInstance = nullptr;
+    static Log                   *LogInstance;
     static privateLog             LogBuffer[RTLOG_BUFFERS];
     static volatile unsigned long LogPush = 0;
-
-#ifdef ANDROID
-    static AndroidLogHandler *_glAndroidLogHandler = nullptr;
-
-    namespace detail {
-      void createAndInstallDefaultHandler(qi::LogLevel verb)
-      {
-        _glAndroidLogHandler = new AndroidLogHandler;
-        addHandler("androidloghandler",
-                   boost::bind(&AndroidLogHandler::log,
-                               _glAndroidLogHandler,
-                               _1, _2, _3, _4, _5, _6, _7, _8),
-                   verb);
-      }
-
-      void destroyDefaultHandler()
-      {
-        if(_glAndroidLogHandler)
-        {
-          delete _glAndroidLogHandler;
-          _glAndroidLogHandler = nullptr;
-        }
-      }
-    } // namespace detail
-#else
-    static ConsoleLogHandler *_glConsoleLogHandler = nullptr;
-
-    namespace detail {
-      void createAndInstallDefaultHandler(qi::LogLevel verb)
-      {
-        _glConsoleLogHandler = new ConsoleLogHandler;
-        addHandler("consoleloghandler",
-                   boost::bind(&ConsoleLogHandler::log,
-                               _glConsoleLogHandler,
-                               _1, _2, _3, _4, _5, _6, _7, _8),
-                   verb);
-      }
-
-      void destroyDefaultHandler()
-      {
-        if(_glConsoleLogHandler)
-        {
-          delete _glConsoleLogHandler;
-          _glConsoleLogHandler = nullptr;
-        }
-      }
-    } // namespace detail
-#endif
 
     namespace detail {
 
@@ -464,7 +420,7 @@ namespace qi {
       CategoryMap& c = _categories();
       for (CategoryMap::iterator it = c.begin(); it != c.end(); ++it)
       {
-        QI_ASSERT(it->first == it->second->name);
+        assert(it->first == it->second->name);
         if (g.matches(it->first)) {
           detail::Category* cat = it->second;
           checkGlobs(cat);
@@ -511,6 +467,8 @@ namespace qi {
 
     void Log::printLog()
     {
+// Logs are handled in qi::log in Android
+#ifndef ANDROID
       privateLog* pl = nullptr;
       boost::mutex::scoped_lock lock(LogHandlerLock);
       while (logs.pop(pl))
@@ -524,6 +482,7 @@ namespace qi {
                  pl->_function,
                  pl->_line);
       }
+#endif
     }
 
     void Log::dispatch(const qi::LogLevel level,
@@ -587,7 +546,9 @@ namespace qi {
     inline Log::Log() :
       SyncLog(true),
       AsyncLogInit(false)
+#ifndef ANDROID
       , logs(50)
+#endif
     {
       LogInit = true;
     };
@@ -623,9 +584,13 @@ namespace qi {
       // will lead to racecond)
       if (_glInit)
         return;
-
-      LogInstance = new Log;
-      detail::createAndInstallDefaultHandler(verb);
+      _glConsoleLogHandler = new ConsoleLogHandler;
+      LogInstance          = new Log;
+      addHandler("consoleloghandler",
+                 boost::bind(&ConsoleLogHandler::log,
+                             _glConsoleLogHandler,
+                             _1, _2, _3, _4, _5, _6, _7, _8),
+                 verb);
       _glInit = true;
     }
 
@@ -647,9 +612,10 @@ namespace qi {
         return;
       _glInit = false;
       LogInstance->printLog();
-      detail::destroyDefaultHandler();
+      delete _glConsoleLogHandler;
+      _glConsoleLogHandler = 0;
       delete LogInstance;
-      LogInstance = nullptr;
+      LogInstance = 0;
     }
 
     void flush()
@@ -692,6 +658,19 @@ namespace qi {
                      const char           *fct,
                      const int             line)
     {
+#ifdef ANDROID
+      std::map<LogLevel, android_LogPriority> _conv;
+
+      _conv[silent]  = ANDROID_LOG_SILENT;
+      _conv[fatal]   = ANDROID_LOG_FATAL;
+      _conv[error]   = ANDROID_LOG_ERROR;
+      _conv[warning] = ANDROID_LOG_WARN;
+      _conv[info]    = ANDROID_LOG_INFO;
+      _conv[verbose] = ANDROID_LOG_VERBOSE;
+      _conv[debug]   = ANDROID_LOG_DEBUG;
+
+      __android_log_print(_conv[verb], categoryStr, msg);
+#else
       if (!LogInstance)
         return;
       if (!LogInstance->LogInit)
@@ -723,6 +702,7 @@ namespace qi {
         LogInstance->logs.push(pl);
         LogInstance->LogReadyCond.notify_one();
       }
+#endif
     }
 
     Log::Handler* Log::logHandler(SubscriberId id)
@@ -859,9 +839,7 @@ namespace qi {
     void setColor(LogColor color)
     {
       _glColorWhen = color;
-#ifndef ANDROID
       _glConsoleLogHandler->updateColor();
-#endif
     }
 
     LogColor color()
@@ -965,60 +943,45 @@ namespace qi {
         checkGlobs(it->second);
     }
 
-    namespace detail {
-      std::vector<std::tuple<std::string, qi::LogLevel>> parseFilterRules(
-          const std::string &rules) {
-        std::vector<std::tuple<std::string, qi::LogLevel>> res;
-        // See doc in header for format
-        size_t pos = 0;
-        while (true)
-        {
-          if (pos >= rules.length())
-            break;
-          size_t next = rules.find(':', pos);
-          std::string token;
-          if (next == rules.npos)
-            token = rules.substr(pos);
-          else
-            token = rules.substr(pos, next-pos);
-          if (token.empty())
-          {
-            pos = next + 1;
-            continue;
-          }
-          if (token[0] == '+')
-            token = token.substr(1);
-          size_t sep = token.find('=');
-          if (sep != token.npos)
-          {
-            std::string sLevel = token.substr(sep+1);
-            std::string cat = token.substr(0, sep);
-            qi::LogLevel level = stringToLogLevel(sLevel.c_str());
-            res.emplace_back(cat, level);
-          }
-          else
-          {
-            if (token[0] == '-')
-              res.emplace_back(token.substr(1), LogLevel_Silent);
-            else
-              res.emplace_back(token, LogLevel_Debug);
-          }
-          if (next == rules.npos)
-            break;
-          pos = next+1;
-        }
-        return res;
-      }
-    }
-
     void addFilters(const std::string& rules, SubscriberId sub)
     {
-      std::string cat;
-      qi::LogLevel level;
-      for (auto &&p: detail::parseFilterRules(rules))
+      // See doc in header for format
+      size_t pos = 0;
+      while (true)
       {
-        std::tie(cat, level) = std::move(p);
-        addFilter(cat, level, sub);
+        if (pos >= rules.length())
+          break;
+        size_t next = rules.find(':', pos);
+        std::string token;
+        if (next == rules.npos)
+          token = rules.substr(pos);
+        else
+          token = rules.substr(pos, next-pos);
+        if (token.empty())
+        {
+          pos = next + 1;
+          continue;
+        }
+        if (token[0] == '+')
+          token = token.substr(1);
+        size_t sep = token.find('=');
+        if (sep != token.npos)
+        {
+          std::string sLevel = token.substr(sep+1);
+          std::string cat = token.substr(0, sep);
+          qi::LogLevel level = stringToLogLevel(sLevel.c_str());
+          addFilter(cat, level, sub);
+        }
+        else
+        {
+          if (token[0] == '-')
+            addFilter(token.substr(1), LogLevel_Silent, sub);
+          else
+            addFilter(token, LogLevel_Debug, sub);
+        }
+        if (next == rules.npos)
+          break;
+        pos = next+1;
       }
     }
 

@@ -43,7 +43,7 @@ namespace qi {
     }
     if (future.hasError())
     {
-      qi::Future<void> fdc = onSocketFailure(future.error());
+      qi::Future<void> fdc = onSocketDisconnected(future.error());
       fdc.connect(&qi::Promise<void>::setError, promise, future.error());
       return;
     }
@@ -65,7 +65,7 @@ namespace qi {
 
   void ServiceDirectoryClient::onMetaObjectFetched(qi::Future<void> future, qi::Promise<void> promise) {
     if (future.hasError()) {
-      qi::Future<void> fdc = onSocketFailure(future.error());
+      qi::Future<void> fdc = onSocketDisconnected(future.error());
       fdc.connect(&qi::Promise<void>::setError, promise, future.error());
       return;
     }
@@ -83,18 +83,14 @@ namespace qi {
     fut2.connect(&ServiceDirectoryClient::onSDEventConnected, this, _1, promise, false);
   }
 
-  namespace service_directory_client_private
+  static void sendCapabilities(TransportSocketPtr sock)
   {
-    static void sendCapabilities(TransportSocketPtr sock)
-    {
-      Message msg;
-      msg.setType(Message::Type_Capability);
-      msg.setService(Message::Service_Server);
-      msg.setValue(sock->localCapabilities(), typeOf<CapabilityMap>()->signature());
-      sock->send(msg);
-    }
-  } // service_directory_client_private
-
+    Message msg;
+    msg.setType(Message::Type_Capability);
+    msg.setService(Message::Service_Server);
+    msg.setValue(sock->localCapabilities(), typeOf<CapabilityMap>()->signature());
+    sock->send(msg);
+  }
 
   void ServiceDirectoryClient::onAuthentication(const TransportSocket::SocketEventData& data, qi::Promise<void> prom, ClientAuthenticatorPtr authenticator, SignalSubscriberPtr old)
   {
@@ -105,7 +101,7 @@ namespace qi {
       if (sdSocket)
         sdSocket->socketEvent.disconnect(*old);
       const std::string& err = boost::get<std::string>(data);
-      qi::Future<void> fdc = onSocketFailure(err);
+      qi::Future<void> fdc = onSocketDisconnected(err);
       fdc.connect(&qi::Promise<void>::setError, prom, err);
       return;
     }
@@ -127,12 +123,12 @@ namespace qi {
           error << "Authentication failed: " << msg.value("s", _sdSocket).to<std::string>();
         else
           error << "Expected a message for function #" << Message::ServerFunction_Authenticate << " (authentication), received a message for function " << msg.function();
-        qi::Future<void> fdc = onSocketFailure(error.str());
+        qi::Future<void> fdc = onSocketDisconnected(error.str());
         fdc.connect(&qi::Promise<void>::setError, prom, error.str());
       }
       else
       {
-        service_directory_client_private::sendCapabilities(sdSocket);
+        sendCapabilities(sdSocket);
         qi::Future<void> future = _remoteObject->fetchMetaObject();
         future.connect(&ServiceDirectoryClient::onMetaObjectFetched, this, _1, prom);
       }
@@ -150,7 +146,7 @@ namespace qi {
       if (sdSocket)
         sdSocket->socketEvent.disconnect(*old);
       std::string error = "Invalid authentication state token.";
-      qi::Future<void> fdc = onSocketFailure(error);
+      qi::Future<void> fdc = onSocketDisconnected(error);
       fdc.connect(&qi::Promise<void>::setError, prom, error);
       qiLogError() << error;
       return;
@@ -177,7 +173,7 @@ namespace qi {
     TransportSocketPtr sdSocket = _sdSocket;
 
     if (future.hasError()) {
-      qi::Future<void> fdc = onSocketFailure(future.error(), false);
+      qi::Future<void> fdc = onSocketDisconnected(future.error());
       fdc.connect(&qi::Promise<void>::setError, promise, future.error());
       return;
     }
@@ -217,7 +213,7 @@ namespace qi {
 
     if (!_sdSocket)
       return qi::makeFutureError<void>(std::string("unrecognized protocol '") + serviceDirectoryURL.protocol() + "' in url '" + serviceDirectoryURL.str() + "'");
-    _sdSocketDisconnectedSignalLink = _sdSocket->disconnected.connect(&ServiceDirectoryClient::onSocketFailure, this, _1, true);
+    _sdSocketDisconnectedSignalLink = _sdSocket->disconnected.connect(&ServiceDirectoryClient::onSocketDisconnected, this, _1);
     _remoteObject->setTransportSocket(_sdSocket);
 
     qi::Promise<void> promise;
@@ -249,7 +245,7 @@ namespace qi {
   }
 
   qi::FutureSync<void> ServiceDirectoryClient::close() {
-    return onSocketFailure("User closed the connection");
+    return onSocketDisconnected("User closed the connection");
   }
 
   bool                 ServiceDirectoryClient::isConnected() const {
@@ -281,7 +277,7 @@ namespace qi {
     serviceAdded(idx, name);
   }
 
-  qi::FutureSync<void> ServiceDirectoryClient::onSocketFailure(std::string error, bool mustSignalDisconnected) {
+  qi::FutureSync<void> ServiceDirectoryClient::onSocketDisconnected(std::string error) {
     qi::Future<void> fut;
     {
       qi::TransportSocketPtr socket;
@@ -291,13 +287,13 @@ namespace qi {
       }
       if (!socket)
         return qi::Future<void>(0);
-      // We just manually triggered onSocketFailure, so unlink
+      // We just manually triggered onSocketDisconnected, so unlink
       // from socket signal before disconnecting it.
       socket->disconnected.disconnect(_sdSocketDisconnectedSignalLink);
       // Manually trigger close on our remoteobject or it will be called
       // asynchronously from socket.disconnected signal, and we would need to
       // wait fo it.
-      _remoteObject->close("Disconnecting socket: " + error);
+      _remoteObject->close("Socket disconnected");
       fut = socket->disconnect();
 
       // Hold the socket shared ptr alive until the future returns.
@@ -331,8 +327,7 @@ namespace qi {
     } catch (std::runtime_error &e) {
         qiLogDebug() << "Cannot disconnect SDC::serviceRemoved: " << e.what();
     }
-    if (mustSignalDisconnected)
-      disconnected(error);
+    disconnected(error);
 
     return fut;
   }

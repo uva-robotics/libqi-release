@@ -15,7 +15,7 @@ static const int MAX = 1000;
 
 class BlockyHandler {
 public:
-  qi::Atomic<int> count {0};
+  qi::Atomic<int> count;
   qi::Promise<void> start;
   qi::Promise<void> finished;
   void log(const qi::LogLevel,

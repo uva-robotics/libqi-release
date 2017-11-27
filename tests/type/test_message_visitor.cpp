@@ -31,8 +31,8 @@
 #include <qi/type/serialization/message_copy_visitor.hpp>
 #include <gtest/gtest.h>
 
-using StringVect = std::vector<std::string>;
-using StringVectMap = std::map<std::string, StringVect>;
+typedef std::vector<std::string>          StringVect;
+typedef std::map<std::string, StringVect> StringVectMap;
 
 TEST(TestMessageVisitor, Basic)
 {

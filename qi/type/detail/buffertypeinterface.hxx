@@ -14,23 +14,18 @@ namespace qi
   class TypeBufferImpl: public RawTypeInterface
   {
   public:
-    std::pair<char*, size_t> get(void *storage) override
+    virtual std::pair<char*, size_t> get(void *storage)
     {
       Buffer* b = (Buffer*)Methods::ptrFromStorage(&storage);
-
-      // TODO: sub-buffers
-      if (b->subBuffers().size() != 0)
-        qiLogError("qitype.buffertypeinterface") << "buffer has sub-buffers, Python bytearrays might be incomplete";
-
       return std::make_pair(const_cast<char*>((const char*)b->data()), b->size());
     }
-    void set(void** storage, const char* ptr, size_t sz) override
+    virtual void set(void** storage, const char* ptr, size_t sz)
     {
       Buffer* b = (Buffer*)ptrFromStorage(storage);
       b->clear();
       b->write(ptr, sz);
     }
-    using Methods = DefaultTypeImplMethods<Buffer, TypeByPointerPOD<Buffer> >;
+    typedef DefaultTypeImplMethods<Buffer, TypeByPointerPOD<Buffer> > Methods;
     _QI_BOUNCE_TYPE_METHODS(Methods);
   };
 

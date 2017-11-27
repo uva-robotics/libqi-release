@@ -40,8 +40,7 @@ int main(int argc, char *argv[])
 
         if (url.protocol() == "tcps")
         {
-          sd.setIdentity(qi::path::findData("qi", "server.key"),
-                         qi::path::findData("qi", "server.crt"));
+          sd.setIdentity("tests/server.key", "tests/server.crt");
         }
 
         endpoints.push_back(url);

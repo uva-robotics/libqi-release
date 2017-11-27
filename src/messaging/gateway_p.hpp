@@ -24,11 +24,11 @@
 #include "gwobjecthost.hpp"
 #include "transportserver.hpp"
 
-using ServiceId = unsigned int;
-using ClientMessageId = unsigned int;
-using GWMessageId = unsigned int;
-using ObjectId = unsigned int;
-using EventId = unsigned int;
+typedef unsigned int ServiceId;
+typedef unsigned int ClientMessageId;
+typedef unsigned int GWMessageId;
+typedef unsigned int ObjectId;
+typedef unsigned int EventId;
 
 namespace qi
 {
@@ -86,7 +86,6 @@ public:
   void setClientAuthenticatorFactory(ClientAuthenticatorFactoryPtr authenticator);
   UrlVector endpoints() const;
   bool listen(const Url& url);
-  bool setIdentity(const std::string& key, const std::string& crt);
   Future<void> connect(const Url& sdUrl);
 
 private:
@@ -172,8 +171,8 @@ private:
   GwSDClient _sdClient;
   GwObjectHost _objectHost;
 
-  using IdLookupMap = std::map<GWMessageId, std::pair<ClientMessageId, TransportSocketPtr> >;
-  using OngoingMessagesMap = std::map<ServiceId, IdLookupMap>;
+  typedef std::map<GWMessageId, std::pair<ClientMessageId, TransportSocketPtr> > IdLookupMap;
+  typedef std::map<ServiceId, IdLookupMap> OngoingMessagesMap;
   // This represents the messages that are currently awaiting a response, with both endpoints being known
   // and connected to the gateway.
   OngoingMessagesMap _ongoingMessages;
@@ -181,15 +180,15 @@ private:
 
   // Messages for services that are not registered to the GW yet.
   // Once they are, we'll forward them.
-  using PendingMessagesMap =
-      std::map<ServiceId, std::vector<boost::tuple<ClientMessageId, Message, TransportSocketPtr>>>;
+  typedef std::map<ServiceId, std::vector<boost::tuple<ClientMessageId, Message, TransportSocketPtr> > >
+      PendingMessagesMap;
   PendingMessagesMap _pendingMessages;
   boost::mutex _pendingMsgMutex;
 
-  using EventSubscriberEndpoint = TransportSocketPtr;
-  using EventHostEndpoint = TransportSocketPtr;
-  using EventAddress =
-      boost::tuple<ServiceId, uint32_t, uint32_t, SignalLink, EventSubscriberEndpoint, EventHostEndpoint>;
+  typedef TransportSocketPtr EventSubscriberEndpoint;
+  typedef TransportSocketPtr EventHostEndpoint;
+  typedef boost::tuple<ServiceId, uint32_t, uint32_t, SignalLink, EventSubscriberEndpoint, EventHostEndpoint>
+      EventAddress;
   std::map<GWMessageId, EventAddress> _pendingEventSubscriptions;
   struct EventSubInfo
   {
@@ -197,11 +196,11 @@ private:
     std::map<EventSubscriberEndpoint, SignalLink> remoteSubscribers;
   };
   //                event n
-  using ClientsPerEventMap = std::map<EventId, EventSubInfo>;
+  typedef std::map<EventId, EventSubInfo> ClientsPerEventMap;
   //                object ID
-  using EventsPerObjectMap = std::map<ObjectId, ClientsPerEventMap>;
-  using EventServiceMap = std::map<ServiceId, EventsPerObjectMap>;
-  using EventsEndpointMap = std::map<EventHostEndpoint, EventServiceMap>;
+  typedef std::map<ObjectId, ClientsPerEventMap> EventsPerObjectMap;
+  typedef std::map<ServiceId, EventsPerObjectMap> EventServiceMap;
+  typedef std::map<EventHostEndpoint, EventServiceMap> EventsEndpointMap;
   EventsEndpointMap _eventSubscribers;
   boost::recursive_mutex _eventSubMutex;
 

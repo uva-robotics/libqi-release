@@ -47,7 +47,7 @@ namespace qi
     friend class TypeImpl<ServiceInfo>;
   };
 
-  using ServiceInfoVector = std::vector<qi::ServiceInfo>;
+  typedef std::vector<qi::ServiceInfo> ServiceInfoVector;
 } // !qi
 
 #endif  // _QIMESSAGING_SERVICEINFO_HPP_

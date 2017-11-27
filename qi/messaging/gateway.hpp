@@ -19,11 +19,11 @@
 namespace qi
 {
 class AuthProviderFactory;
-using AuthProviderFactoryPtr = boost::shared_ptr<AuthProviderFactory>;
+typedef boost::shared_ptr<AuthProviderFactory> AuthProviderFactoryPtr;
 class ClientAuthenticatorFactory;
-using ClientAuthenticatorFactoryPtr = boost::shared_ptr<ClientAuthenticatorFactory>;
+typedef boost::shared_ptr<ClientAuthenticatorFactory> ClientAuthenticatorFactoryPtr;
 class GatewayPrivate;
-using GatewayPrivatePtr = boost::shared_ptr<GatewayPrivate>;
+typedef boost::shared_ptr<GatewayPrivate> GatewayPrivatePtr;
 
 class QI_API Gateway
 {
@@ -43,7 +43,6 @@ public:
   void setClientAuthenticatorFactory(ClientAuthenticatorFactoryPtr authenticator);
   UrlVector endpoints() const;
   bool listen(const Url& url);
-  bool setIdentity(const std::string& key, const std::string& crt);
   qi::Future<void> attachToServiceDirectory(const Url& serviceDirectoryUrl);
   void close();
 };

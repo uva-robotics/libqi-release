@@ -29,14 +29,14 @@ void StreamContext::advertiseCapabilities(const CapabilityMap &map)
   _localCapabilityMap.insert(map.begin(), map.end());
 }
 
-boost::optional<AnyValue> StreamContext::remoteCapability(const std::string& key) const
+boost::optional<AnyValue> StreamContext::remoteCapability(const std::string& key)
 {
   boost::mutex::scoped_lock loc(_contextMutex);
-  const auto it = _remoteCapabilityMap.find(key);
+  CapabilityMap::iterator it = _remoteCapabilityMap.find(key);
   if (it != _remoteCapabilityMap.end())
     return it->second;
   else
-    return {};
+    return boost::optional<AnyValue>();
 }
 
 bool StreamContext::hasReceivedRemoteCapabilities() const
@@ -55,21 +55,21 @@ const CapabilityMap& StreamContext::localCapabilities() const
   return _localCapabilityMap;
 }
 
-boost::optional<AnyValue> StreamContext::localCapability(const std::string& key) const
+boost::optional<AnyValue> StreamContext::localCapability(const std::string& key)
 {
   boost::mutex::scoped_lock loc(_contextMutex);
-  const auto it = _localCapabilityMap.find(key);
+  CapabilityMap::iterator it = _localCapabilityMap.find(key);
   if (it != _localCapabilityMap.end())
     return it->second;
   else
-    return {};
+    return boost::optional<AnyValue>();
 }
 
-MetaObject StreamContext::receiveCacheGet(unsigned int uid) const
+MetaObject StreamContext::receiveCacheGet(unsigned int uid)
 {
   // Return by value, as map is by value.
   boost::mutex::scoped_lock lock(_contextMutex);
-  const auto it = _receiveMetaObjectCache.find(uid);
+  ReceiveMetaObjectCache::iterator it = _receiveMetaObjectCache.find(uid);
   if (it == _receiveMetaObjectCache.end())
     throw std::runtime_error("MetaObject not found in cache");
   return it->second;

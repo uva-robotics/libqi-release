@@ -273,7 +273,6 @@ namespace qi {
          (d = opendir(interfacesDirectory.c_str())) == 0)
       {
         qiLogError() << "socket() failed: " << strerror(errno);
-        close(ioctl_sock);
         return res;
       }
 
@@ -411,27 +410,20 @@ namespace qi {
     {
       boost::filesystem::path p(link, qi::unicodeFacet());
 
-      try
+      while (boost::filesystem::exists(p))
       {
-        while (boost::filesystem::exists(p))
+        if (boost::filesystem::is_symlink(p))
         {
-          if (boost::filesystem::is_symlink(p))
-          {
-            p = boost::filesystem::read_symlink(p);
-          }
-          else
-          {
-            std::string basename = p.parent_path().filename().string(qi::unicodeFacet());
-            std::string filename = p.filename().string(qi::unicodeFacet());
-            boost::filesystem::path res(basename, qi::unicodeFacet());
-            res.append(filename, qi::unicodeFacet());
-            return res.make_preferred().string(qi::unicodeFacet());
-          }
+          p = boost::filesystem::read_symlink(p);
         }
-      }
-      catch (const boost::filesystem::filesystem_error &e)
-      {
-        qiLogError() << "Cannot access path '" << link << "': " << e.what();
+        else
+        {
+          std::string basename = p.parent_path().filename().string(qi::unicodeFacet());
+          std::string filename = p.filename().string(qi::unicodeFacet());
+          boost::filesystem::path res(basename, qi::unicodeFacet());
+          res.append(filename, qi::unicodeFacet());
+          return res.make_preferred().string(qi::unicodeFacet());
+        }
       }
       return std::string();
     }

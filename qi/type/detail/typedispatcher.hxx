@@ -10,10 +10,11 @@
 namespace qi {
 
   template<typename TypeDispatcher>
-  TypeDispatcher& typeDispatch(TypeDispatcher &v, AnyReference value)
+  TypeDispatcher& typeDispatch(const TypeDispatcher &vv, AnyReference value)
   {
     if (!value.type())
       throw std::runtime_error("NULL type");
+    TypeDispatcher& v = const_cast<TypeDispatcher&>(vv);
     switch(value.kind())
     {
       case TypeKind_Void:

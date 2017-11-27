@@ -8,7 +8,7 @@
 
 #include <qi/os.hpp>
 
-using SinFunctor = double (*)(double);
+typedef double (*SinFunctor)(double);
 
 
 int main(int argc, char *argv[])

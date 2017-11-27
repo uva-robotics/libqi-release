@@ -128,8 +128,7 @@ public:
    * --qi-listen-url was given.
    * @deprecated since 2.5, use startSession instead
    */
-  QI_API_DEPRECATED_MSG(Use 'startSession' instead)
-  void start();
+  void QI_API_DEPRECATED start();
 
   /**
    * Establishes the session's connection and moreover starts listening if
@@ -145,7 +144,7 @@ private:
   ApplicationSessionPrivate* _p;
 };
 
-using ApplicationSessionOptions = ApplicationSession::Option;
+typedef ApplicationSession::Option ApplicationSessionOptions;
 }
 
 #endif // QIMESSAGING_APPLICATIONSESSION_HPP_

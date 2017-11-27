@@ -75,14 +75,12 @@ struct Foo: public Padding, public Parent, public Padding2 {
   Foo(const Foo& b)
     : f(b.f+1)
     , r(0)
-    , s(b.s)
   {}
   virtual ~Foo() {}
   void operator = (const Foo& b)
   {
     f = b.f + 1;
     r = b.r;
-    s = b.s;
   }
   int fun(const int &p0,const int &p1)   { return p0 + p1; }
   void vfun(const int &p0,const int &p1) { gGlobalResult = p0 + p1; }
@@ -448,7 +446,7 @@ TEST(TestObject, ConvertSimple)
 
 TEST(TestObject, ConvertMapStruct)
 {
-  using MyMap = std::map<std::string, int>;
+  typedef std::map<std::string, int> MyMap;
   MyMap m;
 
   m["x"] = 41;
@@ -473,7 +471,7 @@ TEST(TestObject, ConvertMapStruct)
 
 TEST(TestObject, ConvertGenericMapStruct)
 {
-  using MyMap = std::map<qi::AnyValue, qi::AnyValue>;
+  typedef std::map<qi::AnyValue, qi::AnyValue> MyMap;
   MyMap m;
 
   m[qi::AnyValue::from("x")] = qi::AnyValue::from(41);

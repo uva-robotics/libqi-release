@@ -20,20 +20,20 @@ template<>
 class TypeImpl<AnyValue>: public DynamicTypeInterface
 {
 public:
-  AnyReference get(void* storage) override
+  virtual AnyReference get(void* storage)
   {
     AnyValue* ptr = (AnyValue*)ptrFromStorage(&storage);
     return ptr->asReference();
   }
 
-  void set(void** storage, AnyReference src) override
+  virtual void set(void** storage, AnyReference src)
   {
     AnyValue* val = (AnyValue*)ptrFromStorage(storage);
     val->reset(src, true, true);
   }
 
   // Default cloner will do just right since AnyValue is by-value.
-  using Methods = DefaultTypeImplMethods<AnyValue, TypeByPointerPOD<AnyValue>>;
+  typedef DefaultTypeImplMethods<AnyValue, TypeByPointerPOD<AnyValue> > Methods;
   _QI_BOUNCE_TYPE_METHODS(Methods);
 };
 
@@ -94,11 +94,6 @@ inline AnyValue AnyValue::makeGenericMap(const std::map<AnyReference,
     AnyReference>& values)
 {
   return makeMap<AnyValue, AnyValue>(values);
-}
-
-inline AnyValue AnyValue::makeVoid()
-{
-  return qi::AnyValue(qi::typeOf<void>());
 }
 
 inline AnyValue::AnyValue()

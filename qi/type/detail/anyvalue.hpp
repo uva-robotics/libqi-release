@@ -62,9 +62,6 @@ namespace qi {
     static AnyValue makeGenericMap(const std::map<AnyReference, AnyReference>& values);
     /// @}
 
-    /// Construct a void AnyValue: defined, but with no data.
-    static AnyValue makeVoid();
-
     ~AnyValue();
     AnyValue& operator=(const AnyReference& b);
     AnyValue& operator=(const AnyValue& b);
@@ -109,7 +106,7 @@ namespace qi {
   QI_API bool operator==(const AnyValue& a, const AnyValue& b);
   QI_API bool operator!=(const AnyValue& a, const AnyValue& b);
 
-  using AnyValueVector = std::vector<AnyValue>;
+  typedef std::vector<AnyValue> AnyValueVector;
 
   inline AnyReferenceVector asAnyReferenceVector(const AnyValueVector& vect);
 

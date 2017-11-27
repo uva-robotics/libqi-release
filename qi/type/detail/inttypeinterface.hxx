@@ -16,24 +16,24 @@ namespace qi {
   class IntTypeInterfaceImpl: public IntTypeInterface
   {
   public:
-    using ImplType = detail::TypeImplMethodsBySize_t<T>;
+    typedef typename detail::TypeImplMethodsBySize<T>::type ImplType;
 
-    int64_t get(void* value) override
+    virtual int64_t get(void* value)
     {
       return *(T*)ImplType::Access::ptrFromStorage(&value);
     }
 
-    void set(void** storage, int64_t value) override
+    virtual void set(void** storage, int64_t value)
     {
       *(T*)ImplType::Access::ptrFromStorage(storage) = (T)value;
     }
 
-    unsigned int size() override
+    virtual unsigned int size()
     {
       return sizeof(T);
     }
 
-    bool isSigned() override
+    virtual bool isSigned()
     {
       return boost::is_signed<T>::value;
     }
@@ -44,24 +44,24 @@ namespace qi {
   template<typename T> class TypeBoolImpl: public IntTypeInterface
   {
   public:
-    using ImplType = detail::TypeImplMethodsBySize_t<T>;
+    typedef typename detail::TypeImplMethodsBySize<T>::type ImplType;
 
-    int64_t get(void* value) override
+    virtual int64_t get(void* value)
     {
       return *(T*)ImplType::Access::ptrFromStorage(&value);
     }
 
-    void set(void** storage, int64_t value) override
+    virtual void set(void** storage, int64_t value)
     {
       *(T*)ImplType::Access::ptrFromStorage(storage) = (T)(value != 0);
     }
 
-    unsigned int size() override
+    virtual unsigned int size()
     {
       return 0;
     }
 
-    bool isSigned() override
+    virtual bool isSigned()
     {
       return 0;
     }
@@ -79,19 +79,19 @@ namespace qi {
   class FloatTypeInterfaceImpl: public FloatTypeInterface
   {
   public:
-    using ImplType = detail::TypeImplMethodsBySize_t<T>;
+    typedef typename detail::TypeImplMethodsBySize<T>::type ImplType;
 
-    double get(void* value) override
+    virtual double get(void* value)
     {
       return *(T*)ImplType::Access::ptrFromStorage(&value);
     }
 
-    void set(void** storage, double value) override
+    virtual void set(void** storage, double value)
     {
       *(T*)ImplType::Access::ptrFromStorage(storage) = (T)value;
     }
 
-    unsigned int size() override
+    virtual unsigned int size()
     {
       return sizeof(T);
     }
@@ -100,5 +100,7 @@ namespace qi {
   };
 
 }
+
+
 
 #endif  // _QITYPE_DETAIL_TYPEINT_HXX_

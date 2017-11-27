@@ -24,8 +24,8 @@
 static const char* callType[] = {
   "?", "C", "R", "E", "S"
 };
-using ObjectMap = std::map<std::string, qi::AnyObject> ;
-using ObjectSignalLinkMap = std::map<std::string, qi::SignalLink>;
+typedef std::map<std::string, qi::AnyObject>  ObjectMap;
+typedef std::map<std::string, qi::SignalLink> ObjectSignalLinkMap;
 static ObjectMap objectMap;
 static ObjectSignalLinkMap objectSignalLinkMap;
 static boost::mutex cbMutex;

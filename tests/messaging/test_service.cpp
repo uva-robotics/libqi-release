@@ -242,7 +242,7 @@ TEST(QiService, ClassProperty)
   ASSERT_EQ(2, client.property<int>("offset"));
 
   // test event
-  qi::Atomic<int> hit{0};
+  qi::Atomic<int> hit = 0;
   f.prop.connect(boost::bind(&inc, &hit, _1));
   obj.connect("offset", boost::bind(&inc, &hit,_1));
   client.connect("offset", boost::bind(&inc, &hit,_1));
@@ -258,7 +258,7 @@ TEST(QiService, ClassProperty)
 
 int prop_ping(qi::PropertyBase* &p, int v)
 {
-  return p->value().value().toInt() + v;
+  return p->value().toInt() + v;
 }
 
 TEST(QiService, GenericProperty)
@@ -278,7 +278,7 @@ TEST(QiService, GenericProperty)
   qi::AnyObject client = p.client()->service("foo");
 
   client.setProperty("offset", 1);
-  ASSERT_EQ(1, prop->value().value().toInt());
+  ASSERT_EQ(1, prop->value().toInt());
   ASSERT_EQ(2, client.call<int>("ping", 1));
   prop->setValue(2);
   ASSERT_EQ(3, client.call<int>("ping", 1));
@@ -302,7 +302,7 @@ TEST(QiService, GenericProperty)
   if (client != obj)
   {
     client.call<void>("setProperty", "offset", 3);
-    EXPECT_EQ(3, prop->value().value().toInt());
+    EXPECT_EQ(3, prop->value().toInt());
   }
 
   // test error handling
@@ -399,64 +399,6 @@ TEST(QiService, NetworkObjectsAreClosedWithTheSession)
   fut.wait();
   // if we reach here, the test is a success: the remote reference "client"
   // is gone so our object has been deleted.
-}
-
-class DoSomething
-{
-public:
-  int ping(int i) { return i; }
-};
-QI_REGISTER_OBJECT(DoSomething, ping);
-
-class CallDoSomethingInDtor
-{
-public:
-  CallDoSomethingInDtor(const qi::SessionPtr& session)
-    : _session(session)
-  {
-  }
-
-  ~CallDoSomethingInDtor()
-  {
-    // Should be always work event on client session
-    // ie: call Dtor object THEN close session and not the other way around
-    if (_session->isConnected())
-    {
-      qiLogFatal() << "get doSomething service";
-      _doSomething = _session->service("doSomething");
-      qi::detail::printMetaObject(std::cout, _doSomething.metaObject());
-      qiLogFatal() << "call doSomething.ping()";
-      _doSomething.call<int>("ping", 12);
-    }
-  }
-
-  void doNothing() {}
-
-private:
-  qi::AnyObject _doSomething;
-  qi::SessionPtr _session;
-};
-QI_REGISTER_OBJECT(CallDoSomethingInDtor, doNothing);
-
-TEST(QiService, CallRemoteServiceInsideDtorService)
-{
-  TestSessionPair p;
-
-  auto ds = boost::make_shared<DoSomething>();
-  p.server()->registerService("doSomething", qi::Object<DoSomething>(ds)).wait();
-
-  auto callds = boost::make_shared<CallDoSomethingInDtor>(p.client());
-  unsigned int idCallDS =
-      p.server()->registerService("callDoSomethingInDtor", qi::Object<CallDoSomethingInDtor>(callds));
-
-  {
-    EXPECT_NO_THROW(p.client()->service("doSomething").value());
-    EXPECT_NO_THROW(p.client()->service("callDoSomethingInDtor").value());
-  }
-
-  // Have the client unregister the service
-  // this should not deadlock
-  p.client()->unregisterService(idCallDS).wait();
 }
 
 int main(int argc, char **argv)

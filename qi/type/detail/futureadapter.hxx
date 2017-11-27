@@ -16,8 +16,6 @@ namespace qi
 namespace detail
 {
 
-static const char* InvalidFutureError = "function returned an invalid future";
-
 template<typename T> void setPromise(qi::Promise<T>& promise, AnyValue& v)
 {
   try
@@ -49,7 +47,7 @@ template <typename T>
 void futureAdapterGeneric(AnyReference val, qi::Promise<T> promise,
     boost::shared_ptr<GenericObject>& ao)
 {
-  QI_ASSERT(ao);
+  assert(ao);
   qiLogDebug("qi.adapter") << "futureAdapter trigger";
   TypeOfTemplate<Future>* ft1 = QI_TEMPLATE_TYPE_GET(val.type(), Future);
   TypeOfTemplate<FutureSync>* ft2 = QI_TEMPLATE_TYPE_GET(val.type(), FutureSync);
@@ -123,12 +121,6 @@ inline bool handleFuture(AnyReference val, Promise<T> promise)
   if (!ao)
     return false;
 
-  if (!ao->call<bool>("isValid"))
-  {
-    promise.setError(InvalidFutureError);
-    return true;
-  }
-
   boost::function<void()> cb =
     boost::bind(futureAdapterGeneric<T>, val, promise, ao);
   // Careful, gfut will die at the end of this block, but it is
@@ -147,7 +139,6 @@ inline bool handleFuture(AnyReference val, Promise<T> promise)
   catch (std::exception& e)
   {
     qiLogError("qi.object") << "future connect error " << e.what();
-    promise.setError("internal error: cannot connect returned future");
   }
   return true;
 }
@@ -163,7 +154,7 @@ struct AutoRefDestroy
 };
 
 template <typename T>
-inline T extractFuture(const qi::Future<qi::AnyReference>& metaFut)
+inline T extractFuture(qi::Future<qi::AnyReference> metaFut)
 {
   AnyReference val =  metaFut.value();
   AutoRefDestroy destroy(val);
@@ -171,9 +162,6 @@ inline T extractFuture(const qi::Future<qi::AnyReference>& metaFut)
   AnyValue hold;
   if (boost::shared_ptr<GenericObject> ao = getGenericFuture(val))
   {
-    if (!ao->call<bool>("isValid"))
-      throw std::runtime_error(InvalidFutureError);
-
     hold = ao->call<qi::AnyValue>("value", (int)FutureTimeout_Infinite);
     val = hold.asReference();
   }
@@ -191,10 +179,10 @@ inline T extractFuture(const qi::Future<qi::AnyReference>& metaFut)
       if (conv.second)
       {
         AutoRefDestroy destroy(conv.first);
-        return std::move(*conv.first.ptr<T>(false));
+        return *conv.first.ptr<T>(false);
       }
       else
-        return std::move(*conv.first.ptr<T>(false));
+        return *conv.first.ptr<T>(false);
     }
   }
   catch(const std::exception& e)
@@ -204,22 +192,17 @@ inline T extractFuture(const qi::Future<qi::AnyReference>& metaFut)
 }
 
 template <>
-inline void extractFuture<void>(const qi::Future<qi::AnyReference>& metaFut)
+inline void extractFuture<void>(qi::Future<qi::AnyReference> metaFut)
 {
   AnyReference val = metaFut.value();
   AutoRefDestroy destroy(val);
 
   if (boost::shared_ptr<GenericObject> ao = getGenericFuture(val))
-  {
-    if (!ao->call<bool>("isValid"))
-      throw std::runtime_error(InvalidFutureError);
-
     ao->call<qi::AnyValue>("value", (int)FutureTimeout_Infinite);
-  }
 }
 
 template <typename T>
-inline void futureAdapter(const qi::Future<qi::AnyReference>& metaFut, qi::Promise<T> promise)
+inline void futureAdapter(qi::Future<qi::AnyReference>& metaFut, qi::Promise<T> promise)
 {
   qiLogDebug("qi.object") << "futureAdapter " << qi::typeOf<T>()->infoString()<< ' ' << metaFut.hasError();
   //error handling
@@ -259,7 +242,7 @@ inline void futureAdapter(const qi::Future<qi::AnyReference>& metaFut, qi::Promi
 }
 
 template <>
-inline void futureAdapter<void>(const qi::Future<qi::AnyReference>& metaFut, qi::Promise<void> promise)
+inline void futureAdapter<void>(qi::Future<qi::AnyReference>& metaFut, qi::Promise<void> promise)
 {
   qiLogDebug("qi.object") << "futureAdapter void " << metaFut.hasError();
   //error handling
@@ -280,7 +263,7 @@ inline void futureAdapter<void>(const qi::Future<qi::AnyReference>& metaFut, qi:
 }
 
 template <typename T>
-inline void futureAdapterVal(const qi::Future<qi::AnyValue>& metaFut, qi::Promise<T> promise)
+inline void futureAdapterVal(qi::Future<qi::AnyValue> metaFut, qi::Promise<T> promise)
 {
   //error handling
   if (metaFut.hasError()) {
@@ -303,7 +286,7 @@ inline void futureAdapterVal(const qi::Future<qi::AnyValue>& metaFut, qi::Promis
 }
 
 template <>
-inline void futureAdapterVal(const qi::Future<qi::AnyValue>& metaFut, qi::Promise<AnyValue> promise)
+inline void futureAdapterVal(qi::Future<qi::AnyValue> metaFut, qi::Promise<AnyValue> promise)
 {
   if (metaFut.hasError())
     promise.setError(metaFut.error());
@@ -314,7 +297,7 @@ inline void futureAdapterVal(const qi::Future<qi::AnyValue>& metaFut, qi::Promis
 }
 
 template <>
-inline void futureAdapterVal(const qi::Future<qi::AnyValue>& metaFut, qi::Promise<void> promise)
+inline void futureAdapterVal(qi::Future<qi::AnyValue> metaFut, qi::Promise<void> promise)
 {
   if (metaFut.hasError())
     promise.setError(metaFut.error());

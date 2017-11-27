@@ -127,7 +127,7 @@ namespace detail
 {
 
 // Storage type used by Object<T>, and Proxy.
-using ManagedObjectPtr = boost::shared_ptr<class GenericObject>;
+typedef boost::shared_ptr<class GenericObject> ManagedObjectPtr;
 
 }
 
@@ -210,11 +210,11 @@ qi::FutureSync<void> GenericObject::setProperty(const std::string& name, const T
  * Override backend shared_ptr<GenericObject>
 */
 template<>
-class QI_API TypeImpl<boost::shared_ptr<GenericObject>> :
+class QI_API TypeImpl<boost::shared_ptr<GenericObject> > :
   public DynamicTypeInterface
 {
 public:
-  AnyReference get(void* storage) override
+  virtual AnyReference get(void* storage)
   {
     detail::ManagedObjectPtr* val = (detail::ManagedObjectPtr*)ptrFromStorage(&storage);
     AnyReference result;
@@ -225,7 +225,7 @@ public:
     return AnyReference((*val)->type, (*val)->value);
   }
 
-  void set(void** storage, AnyReference source) override
+  virtual void set(void** storage, AnyReference source)
   {
     qiLogCategory("qitype.object");
     detail::ManagedObjectPtr* val = (detail::ManagedObjectPtr*)ptrFromStorage(storage);
@@ -258,7 +258,7 @@ public:
       throw std::runtime_error((std::string)"Cannot assign non-object " + source.type()->infoString() + " to Object");
   }
 
-  using Methods = DefaultTypeImplMethods<detail::ManagedObjectPtr, TypeByPointerPOD<detail::ManagedObjectPtr>>;
+  typedef DefaultTypeImplMethods<detail::ManagedObjectPtr, TypeByPointerPOD<detail::ManagedObjectPtr> > Methods;
   _QI_BOUNCE_TYPE_METHODS(Methods);
 };
 

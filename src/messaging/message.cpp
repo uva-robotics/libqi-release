@@ -2,12 +2,12 @@
 **  Copyright (C) 2012 Aldebaran Robotics
 **  See COPYING for the license
 */
+#include <cassert>
 #include <cstring>
 
 #include <boost/make_shared.hpp>
 #include <boost/dynamic_bitset.hpp>
 
-#include <qi/assert.hpp>
 #include <qi/anyvalue.hpp>
 #include "message.hpp"
 
@@ -146,7 +146,8 @@ namespace qi {
     if (this == &msg)
       return *this;
 
-    _p = msg._p;
+    _p->buffer = msg._p->buffer;
+    memcpy(&(_p->header), &(msg._p->header), sizeof(MessagePrivate::MessageHeader));
     return *this;
   }
 
@@ -332,14 +333,11 @@ namespace qi {
     _p->buffer = buffer;
   }
 
-  void Message::setError(const std::string &error)
-  {
-    QI_ASSERT(type() == Type_Error && "called setError on a non Type_Error message");
-
-    cow();
-    // Clear the buffer before setting an error.
-    _p->buffer.clear();
-
+  void Message::setError(const std::string &error) {
+    if (type() != Type_Error) {
+      qiLogWarning() << "called setError on a non Type_Error message";
+      return;
+    }
     // Error message is of type m (dynamic)
     AnyValue v(AnyReference::from(error), false, false);
     setValue(AnyReference::from(v), "m");
@@ -401,7 +399,7 @@ namespace qi {
       RemoteObject* ro = new RemoteObject(osi.serviceId, osi.objectId, osi.metaObject, context);
       AnyObject o = makeDynamicAnyObject(ro, true, &onProxyLost);
       qiLogDebug() << "New object is " << o.asGenericObject() << "on ro " << ro;
-      QI_ASSERT(o);
+      assert(o);
       return o;
     }
   }
@@ -416,7 +414,8 @@ namespace qi {
     qi::BufferReader br(_p->buffer);
     //TODO: not exception safe
     AnyReference res(type);
-    return decodeBinary(&br, res, boost::bind(deserializeObject, _1, socket), socket.get());
+    decodeBinary(&br, res, boost::bind(deserializeObject, _1, socket), socket.get());
+    return res;
   }
 
   void Message::setValue(const AutoAnyReference &value, const Signature& sig, ObjectHost* context, StreamContext* streamContext) {
@@ -524,7 +523,7 @@ namespace qi {
     return _p->buffer;
   }
 
-  bool Message::isValid() const
+  bool Message::isValid()
   {
     if (_p->header.magic != qi::MessagePrivate::magic)
     {
@@ -541,7 +540,7 @@ namespace qi {
     if (object() == qi::Message::GenericObject_None)
     {
       qiLogError()  << "Message dropped (object is 0)" << std::endl;
-      QI_ASSERT(object() != qi::Message::GenericObject_None);
+      assert(object() != qi::Message::GenericObject_None);
       return false;
     }
 

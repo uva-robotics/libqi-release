@@ -18,8 +18,8 @@
 
 #include "objecthost.hpp"
 
-using AtomicBoolptr = boost::shared_ptr<qi::Atomic<bool>>;
-using AtomicIntPtr = boost::shared_ptr<qi::Atomic<int>>;
+typedef boost::shared_ptr<qi::Atomic<bool> > AtomicBoolptr;
+typedef boost::shared_ptr<qi::Atomic<int> > AtomicIntPtr;
 
 namespace qi {
 
@@ -98,17 +98,17 @@ namespace qi {
     virtual void onMessage(const qi::Message &msg, TransportSocketPtr socket);
     virtual void onSocketDisconnected(qi::TransportSocketPtr socket, std::string error);
 
-    using MessageId = unsigned int;
+    typedef unsigned int MessageId;
     void cancelCall(TransportSocketPtr origSocket, const Message& cancelMessage, MessageId origMsgId);
 
     qi::Signal<ServiceBoundObject*> onDestroy;
   private:
-    using FutureMap = std::map<MessageId, std::pair<Future<AnyReference>, AtomicIntPtr>>;
-    using CancelableMap = std::map<TransportSocketPtr, FutureMap>;
+    typedef std::map<MessageId, std::pair<Future<AnyReference>, AtomicIntPtr> > FutureMap;
+    typedef std::map<TransportSocketPtr, FutureMap> CancelableMap;
     struct CancelableKit;
-    using CancelableKitPtr = boost::shared_ptr<CancelableKit>;
+    typedef boost::shared_ptr<CancelableKit> CancelableKitPtr;
     CancelableKitPtr _cancelables;
-    using CancelableKitWeak = boost::weak_ptr<CancelableKit>;
+    typedef boost::weak_ptr<CancelableKit> CancelableKitWeak;
 
     qi::AnyObject createServiceBoundObjectType(ServiceBoundObject *self, bool bindTerminate = false);
 
@@ -125,8 +125,8 @@ namespace qi {
 
   private:
     // remote link id -> local link id
-    using ServiceSignalLinks = std::map<SignalLink, RemoteSignalLink>;
-    using BySocketServiceSignalLinks = std::map<qi::TransportSocketPtr, ServiceSignalLinks>;
+    typedef std::map<SignalLink, RemoteSignalLink>             ServiceSignalLinks;
+    typedef std::map<qi::TransportSocketPtr, ServiceSignalLinks> BySocketServiceSignalLinks;
 
     //Event handling (no lock needed)
     BySocketServiceSignalLinks  _links;
@@ -150,7 +150,8 @@ namespace qi {
     friend class ::qi::ServiceDirectory;
   };
 
-  using BoundAnyObject = boost::shared_ptr<BoundObject>;
+
+  typedef boost::shared_ptr<BoundObject> BoundAnyObject;
 
   qi::BoundAnyObject makeServiceBoundAnyObject(unsigned int serviceId, qi::AnyObject object, qi::MetaCallType mct = qi::MetaCallType_Auto);
 

@@ -9,13 +9,8 @@
 #include <boost/foreach.hpp>
 
 #include <qi/log.hpp>
-#include <qi/detail/log.hxx>
 
 #include <qi/applicationsession.hpp>
-#include <qi/anymodule.hpp>
-#include <qicore/logmessage.hpp>
-#include <qicore/logmanager.hpp>
-#include <qicore/loglistener.hpp>
 
 #include "qicli.hpp"
 
@@ -23,24 +18,63 @@
 
 qiLogCategory("qicli.qilog");
 
-static void onMessage(const qi::LogMessage& msg)
+static void onMessage(const qi::AnyValue& msg)
 {
+  qi::AnyReference ref = msg.asReference();
   std::stringstream ss;
-  ss << qi::log::logLevelToString(static_cast<qi::LogLevel>(msg.level))
-     << " " << msg.category
-     << " " << msg.source
-     << " " << msg.message;
+  ss << qi::log::logLevelToString(static_cast<qi::LogLevel>(ref[1].asInt32())) // level
+      << " " << ref[3].asString() // category
+      << " " << ref[0].asString() // source
+      << " " << ref[5].asString(); // message
   std::cout << ss.str() << std::endl;
 }
 
-static void setFilter(const std::string& rules, qi::LogListenerPtr listener)
+static void setFilter(const std::string& rules, qi::AnyObject listener)
 {
-  std::string cat;
-  qi::LogLevel level;
-  for (auto &&p: qi::log::detail::parseFilterRules(rules))
+  // See doc in header for format
+  size_t pos = 0;
+  while (true)
   {
-    std::tie(cat, level) = std::move(p);
-    listener->addFilter(cat, level);
+    if (pos >= rules.length())
+      break;
+    size_t next = rules.find(':', pos);
+    std::string token;
+    if (next == rules.npos)
+      token = rules.substr(pos);
+    else
+      token = rules.substr(pos, next-pos);
+    if (token.empty())
+    {
+      pos = next + 1;
+      continue;
+    }
+    if (token[0] == '+')
+      token = token.substr(1);
+    size_t sep = token.find('=');
+    if (sep != token.npos)
+    {
+      std::string sLevel = token.substr(sep+1);
+      std::string cat = token.substr(0, sep);
+      int level = qi::log::stringToLogLevel(sLevel.c_str());
+      qiLogFatal() << cat << level;
+      listener.call<void>("addFilter", cat, level);
+    }
+    else
+    {
+      if (token[0] == '-')
+      {
+        qiLogFatal() << token.substr(1) << 0;
+        listener.call<void>("addFilter", token.substr(1), 0);
+      }
+      else
+      {
+        qiLogFatal() << token << 6;
+        listener.call<void>("addFilter", token, 6);
+      }
+    }
+    if (next == rules.npos)
+      break;
+    pos = next+1;
   }
 }
 
@@ -66,10 +100,10 @@ int subCmd_logView(int argc, char **argv, qi::ApplicationSession& app)
 
   qiLogVerbose() << "Resolving services";
 
-  app.loadModule("qicore");
-  qi::LogManagerPtr logger = app.session()->service("LogManager");
-  qi::LogListenerPtr listener = logger->createListener();
-  listener->clearFilters();
+  qi::AnyObject logger = s->service("LogManager");
+  qi::AnyObject listener = logger.call<qi::AnyObject>("getListener");
+
+  listener.call<void>("clearFilters");
 
   if (vm.count("level"))
   {
@@ -80,14 +114,14 @@ int subCmd_logView(int argc, char **argv, qi::ApplicationSession& app)
     else if (level <= 0)
       level = 0;
 
-    listener->addFilter("*", static_cast<qi::LogLevel>(level));
+    listener.call<void>("addFilter", "*", level);
   }
 
   if (vm.count("verbose"))
-    listener->addFilter("*", qi::LogLevel_Verbose);
+    listener.call<void>("addFilter", "*", 5);
 
   if (vm.count("debug"))
-    listener->addFilter("*", qi::LogLevel_Debug);
+    listener.call<void>("addFilter", "*", 6);
 
   if (vm.count("filters"))
   {
@@ -95,7 +129,8 @@ int subCmd_logView(int argc, char **argv, qi::ApplicationSession& app)
     setFilter(filters, listener);
   }
 
-  listener->onLogMessage.connect(&onMessage);
+  listener.connect("onLogMessage", &onMessage);
+
   app.run();
 
   return 0;
@@ -128,53 +163,59 @@ int subCmd_logSend(int argc, char **argv, qi::ApplicationSession& app)
 
   qiLogVerbose() << "Resolving services";
 
-  // import module
-  qi::AnyModule mod = qi::import("qicore");
+  qi::AnyObject logger = s->service("LogManager");
 
-  // get service Logger
-  qi::LogManagerPtr logger = app.session()->service("LogManager");
+  qi::os::timeval tv(qi::SystemClock::now());
 
-  qi::LogMessage msg;
+  std::string source(__FILE__);
+  source += ':';
+  source += __FUNCTION__;
+  source += ':';
+  source += boost::lexical_cast<std::string>(__LINE__);
 
-  msg.source = __FILE__;
-  msg.source += ':';
-  msg.source += __FUNCTION__;
-  msg.source += ':';
-  msg.source += boost::lexical_cast<std::string>(__LINE__);
-
-  msg.level = qi::LogLevel_Info;
+  int level = 4;
   if (vm.count("level"))
   {
-    int level = vm["level"].as<int>();
+    level = vm["level"].as<int>();
 
     if (level > 6)
-      level = qi::LogLevel_Debug;
+      level =  6;
     else if (level <= 0)
-      level = qi::LogLevel_Silent;
-
-    msg.level = static_cast<qi::LogLevel>(level);
+      level = 0;
   }
   if (vm.count("verbose"))
-    msg.level = qi::LogLevel_Verbose;
+    level = 5;
 
   if (vm.count("debug"))
-    msg.level = qi::LogLevel_Debug;
+    level = 6;
 
-  msg.category = "qicli.qilog.logsend";
+  std::string category = "qicli.qilog.logsend";
   if (vm.count("category"))
-    msg.category = vm["category"].as<std::string>();
+    category = vm["category"].as<std::string>();
 
-  msg.location = qi::os::getMachineId() + ":" + boost::lexical_cast<std::string>(qi::os::getpid());
-
+  std::string location = qi::os::getMachineId() + ":" + boost::lexical_cast<std::string>(qi::os::getpid());;
+  std::string message = "";
   if (vm.count("message"))
-    msg.message = vm["message"].as<std::string>();
+    message = vm["message"].as<std::string>();
 
-  msg.date = qi::Clock::now();
-  msg.systemDate = qi::SystemClock::now();
+  // timestamp
+  qi::AnyReferenceVector timeVectRef;
+  timeVectRef.push_back(qi::AnyReference::from(tv.tv_sec));
+  timeVectRef.push_back(qi::AnyReference::from(tv.tv_usec));
+  qi::AnyValue timeVal = qi::AnyValue::makeTuple(timeVectRef);
 
-  std::vector<qi::LogMessage> msgs;
-  msgs.push_back(msg);
-  logger->log(msgs);
+  qi::AnyReferenceVector msgVectRef;
+  msgVectRef.push_back(qi::AnyReference::from(source));
+  msgVectRef.push_back(qi::AnyReference::from(level));
+  msgVectRef.push_back(timeVal.asReference()); //timestamp
+  msgVectRef.push_back(qi::AnyReference::from(category));
+  msgVectRef.push_back(qi::AnyReference::from(location));
+  msgVectRef.push_back(qi::AnyReference::from(message));
+  msgVectRef.push_back(qi::AnyReference::from(0));
+
+  std::vector<qi::AnyValue> msgs;
+  msgs.push_back(qi::AnyValue::makeTuple(msgVectRef));
+  logger.call<void>("log", qi::AnyValue::from(msgs));
 
   logger.reset();
 

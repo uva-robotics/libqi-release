@@ -57,8 +57,7 @@ namespace qi {
     template<typename T, typename... Args>
     inline unsigned int advertiseFactory(const std::string& name)
     {
-      qi::Object<T>(*constructor)(Args...) = [](Args... args) { return constructObject<T>(args...); };
-      return advertiseMethod(name, constructor);
+      return advertiseMethod(name, &constructObject<T, Args...>);
     }
 
     template <typename... Args>

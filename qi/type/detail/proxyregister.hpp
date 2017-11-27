@@ -40,37 +40,37 @@ public:
   /* We need a per-instance offset from effective type to Proxy.
    * Avoid code explosion by putting it per-instance
   */
-  using ToProxy = boost::function<Proxy*(void*)>;
+  typedef boost::function<Proxy*(void*)> ToProxy;
   TypeProxy(ToProxy  toProxy)
   : toProxy(toProxy)
   {
   }
-  const MetaObject& metaObject(void* instance) override
+  virtual const MetaObject& metaObject(void* instance)
   {
     Proxy* ptr = toProxy(instance);
     return ptr->asObject().metaObject();
   }
-  qi::Future<AnyReference> metaCall(void* instance, AnyObject context, unsigned int method, const GenericFunctionParameters& params, MetaCallType callType, Signature returnSignature) override
+  virtual qi::Future<AnyReference> metaCall(void* instance, AnyObject context, unsigned int method, const GenericFunctionParameters& params, MetaCallType callType, Signature returnSignature)
   {
     Proxy* ptr = toProxy(instance);
     return ptr->asObject().metaCall(method, params, callType, returnSignature);
   }
-  void metaPost(void* instance, AnyObject context, unsigned int signal, const GenericFunctionParameters& params) override
+  virtual void metaPost(void* instance, AnyObject context, unsigned int signal, const GenericFunctionParameters& params)
   {
     Proxy* ptr = toProxy(instance);
     ptr->asObject().metaPost(signal, params);
   }
-  qi::Future<SignalLink> connect(void* instance, AnyObject context, unsigned int event, const SignalSubscriber& subscriber) override
+  virtual qi::Future<SignalLink> connect(void* instance, AnyObject context, unsigned int event, const SignalSubscriber& subscriber)
   {
     Proxy* ptr = toProxy(instance);
     return ptr->asObject().connect(event, subscriber);
   }
-  qi::Future<void> disconnect(void* instance, AnyObject context, SignalLink linkId) override
+  virtual qi::Future<void> disconnect(void* instance, AnyObject context, SignalLink linkId)
   {
      Proxy* ptr = toProxy(instance);
      return ptr->asObject().disconnect(linkId);
   }
-  const std::vector<std::pair<TypeInterface*, int> >& parentTypes() override
+  virtual const std::vector<std::pair<TypeInterface*, int> >& parentTypes()
   {
     using ReturnType = typename std::decay<decltype(parentTypes())>::type;
     static ReturnType* parents = nullptr;
@@ -90,22 +90,23 @@ public:
 
     return *parents;
   }
-  qi::Future<AnyValue> property(void* instance, AnyObject context, unsigned int id) override
+  virtual qi::Future<AnyValue> property(void* instance, AnyObject context, unsigned int id)
   {
     Proxy* ptr = toProxy(instance);
     GenericObject* obj = ptr->asObject().asGenericObject();
     return obj->type->property(obj->value, context, id);
   }
-  qi::Future<void> setProperty(void* instance, AnyObject context, unsigned int id, AnyValue value) override
+  virtual qi::Future<void> setProperty(void* instance, AnyObject context, unsigned int id, AnyValue value)
   {
     Proxy* ptr = toProxy(instance);
     GenericObject* obj = ptr->asObject().asGenericObject();
     return obj->type->setProperty(obj->value, context, id, value);
   }
-  using Methods = DefaultTypeImplMethods<Proxy>;
+  typedef DefaultTypeImplMethods<Proxy> Methods;
   _QI_BOUNCE_TYPE_METHODS(Methods);
   ToProxy toProxy;
 };
+
 
 namespace detail
 {

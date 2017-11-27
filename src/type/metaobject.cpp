@@ -16,7 +16,7 @@ qiLogCategory("qitype.metaobject");
 
 namespace qi {
 
-qi::Atomic<int> MetaObjectPrivate::uid{1};
+  qi::Atomic<int> MetaObjectPrivate::uid = 1;
 
   MetaObjectPrivate::MetaObjectPrivate(const MetaObjectPrivate &rhs)
   {
@@ -184,7 +184,7 @@ qi::Atomic<int> MetaObjectPrivate::uid{1};
       size_t nargs = args.size();
       for (MetaMethod* mm = overloadIt->second; mm; mm=mm->_p->next)
       {
-        QI_ASSERT(mm->name() == nameWithOptionalSignature);
+        assert(mm->name() == nameWithOptionalSignature);
         const Signature& sig = mm->parametersSignature();
         if (sig == "m" || sig.children().size() == nargs)
         {
@@ -230,7 +230,7 @@ qi::Atomic<int> MetaObjectPrivate::uid{1};
         if (itRev != _methodsNameToIdx.end())
           return itRev->second;
 
-        using MethodsPtr = std::vector<std::pair<const MetaMethod*, float>>;
+        typedef std::vector<std::pair<const MetaMethod*, float> > MethodsPtr;
         MethodsPtr mml;
 
         // embed findCompatibleMethod
@@ -254,7 +254,7 @@ qi::Atomic<int> MetaObjectPrivate::uid{1};
           if (mml[i].second == it->second)
             ++count;
         }
-        QI_ASSERT(count);
+        assert(count);
         if (count > 1) {
           qiLogVerbose() << generateErrorString(nameWithOptionalSignature, fullSig, const_cast<MetaObjectPrivate*>(this)->findCompatibleMethod(nameWithOptionalSignature), -3, false);
           retval = -3;
@@ -465,7 +465,7 @@ qi::Atomic<int> MetaObjectPrivate::uid{1};
       }
     }
     // never lower index
-    _index = std::max(idx, _index.load());
+    _index = std::max(idx, *_index);
     _dirtyCache = false;
   }
 

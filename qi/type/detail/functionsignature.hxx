@@ -29,14 +29,14 @@ namespace qi {
     {
       static qi::Signature makeSigreturn()
       {
-        using ResultType = typename boost::function_types::result_type<T>::type;
+        typedef typename boost::function_types::result_type<T>::type     ResultType;
         return typeOf<ResultType>()->signature();
       }
       static qi::Signature makeSignature()
       {
         std::string   signature;
         signature += '(';
-        using ArgsType = typename boost::function_types::parameter_types<T>::type;
+        typedef typename boost::function_types::parameter_types<T>::type ArgsType;
         boost::mpl::for_each<
           boost::mpl::transform_view<ArgsType,
             boost::add_pointer<
@@ -56,7 +56,7 @@ namespace qi {
     {
       static qi::Signature makeSigreturn()
       {
-        using ResultType = typename qi::boost_bind_result_type<boost::_bi::bind_t<R, F, B>>::type;
+        typedef typename qi::boost_bind_result_type<boost::_bi::bind_t<R, F, B> >::type     ResultType;
         return typeOf<ResultType>()->signature();
       }
 
@@ -64,7 +64,7 @@ namespace qi {
       {
         std::string   signature;
         signature += '(';
-        using ArgsType = typename qi::boost_bind_parameter_types<boost::_bi::bind_t<R, F, B>>::type;
+        typedef typename qi::boost_bind_parameter_types<boost::_bi::bind_t<R, F, B> >::type ArgsType;
         boost::mpl::for_each<
           boost::mpl::transform_view<ArgsType,
             boost::add_pointer<
@@ -84,17 +84,17 @@ namespace qi {
     {
       static qi::Signature makeSigreturn()
       {
-        using ResultType = typename boost::function_types::result_type<T>::type;
+        typedef typename boost::function_types::result_type<T>::type     ResultType;
         return typeOf<ResultType>()->signature();
       }
       static qi::Signature makeSignature()
       {
         // Reconstruct the boost::bind(instance, _1, _2...) signature
-        using RetType = typename boost::function_types::result_type<T>::type;
-        using MemArgsType = typename boost::function_types::parameter_types<T>::type;
-        using ArgsType = typename boost::mpl::pop_front<MemArgsType>::type;
-        using EffectiveType = typename boost::mpl::push_front<ArgsType, RetType>::type;
-        using type = typename boost::function_types::function_type<EffectiveType>::type;
+        typedef typename boost::function_types::result_type<T>::type     RetType;
+        typedef typename boost::function_types::parameter_types<T>::type MemArgsType;
+        typedef typename boost::mpl::pop_front< MemArgsType >::type      ArgsType;
+        typedef typename boost::mpl::push_front<ArgsType, RetType>::type EffectiveType;
+        typedef typename boost::function_types::function_type<EffectiveType>::type type;
         return RawFunctionSignature<type>::makeSignature();
       }
     };
@@ -102,11 +102,11 @@ namespace qi {
     template<typename T>
     struct FunctionSignature
     {
-      using Backend = typename boost::mpl::if_<
+      typedef typename  boost::mpl::if_<
         typename boost::function_types::is_member_pointer<T>,
         MemberFunctionSignature<T>,
         RawFunctionSignature<T>
-        >::type;
+        >::type Backend;
       static qi::Signature signature()
       {
         static qi::Signature result = Backend::makeSignature();
@@ -127,12 +127,12 @@ namespace qi {
     {
       std::string sigs;
       sigs += '(';
-      using ArgsType = typename boost::function_types::parameter_types<T>::type;
+      typedef typename boost::function_types::parameter_types<T>::type ArgsType;
       boost::mpl::for_each<
         boost::mpl::transform_view<ArgsType,
         boost::add_pointer<
         boost::remove_const<
-        boost::remove_reference<boost::mpl::_1>>>>> (qi::detail::signature_function_arg_apply(&sigs));
+        boost::remove_reference<boost::mpl::_1> > > > > (qi::detail::signature_function_arg_apply(&sigs));
       sigs += ')';
       return Signature(sigs);
     }

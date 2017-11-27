@@ -68,7 +68,7 @@ TEST(TestStrand, StrandCancelScheduled)
   ASSERT_EQ(qi::FutureState_Canceled, f2.wait());
 }
 
-static void increment(boost::mutex& mutex, int waittime, std::atomic<unsigned int>& i)
+static void increment(boost::mutex& mutex, int waittime, boost::atomic<unsigned int>& i)
 {
   boost::unique_lock<boost::mutex> lock(mutex, boost::try_to_lock);
   // we should never be called in parallel
@@ -86,7 +86,7 @@ TEST(TestStrand, AggressiveCancel)
   std::vector<qi::Future<void> > futures;
 
   qi::Strand strand(*qi::getEventLoop());
-  std::atomic<unsigned int> i(0);
+  boost::atomic<unsigned int> i(0);
   for (unsigned int j = 0; j < STRAND_NB_TRIES; ++j)
   {
     qi::Future<void> f1 = strand.async(boost::bind<void>(&increment,
@@ -114,7 +114,7 @@ TEST(TestStrand, AggressiveCancel)
 TEST(TestStrand, StrandDestruction)
 {
   boost::mutex mutex;
-  std::atomic<unsigned int> i(0);
+  boost::atomic<unsigned int> i(0);
 
   std::vector<qi::Future<void>> futures;
   {
@@ -134,7 +134,7 @@ TEST(TestStrand, StrandDestructionWithMethodAndConcurrency)
 {
   // ASSERT_NOSEGFAULT_NOCRASH_NOBADTHINGS();
   boost::mutex mutex;
-  std::atomic<unsigned int> i(0);
+  boost::atomic<unsigned int> i(0);
 
   std::vector<qi::Future<void>> futures;
   qi::Strand strand(*qi::getEventLoop());
@@ -164,7 +164,7 @@ TEST(TestStrand, StrandDestructionWithCancel)
 {
   boost::mutex mutex;
   std::vector<qi::Future<void> > futures;
-  std::atomic<unsigned int> i(0);
+  boost::atomic<unsigned int> i(0);
 
   {
     qi::Strand strand(*qi::getEventLoop());
@@ -205,31 +205,13 @@ TEST(TestStrand, StrandDestructionBeforeEnd)
   f.value();
 }
 
-TEST(TestStrand, StrandDestructionWithSchedulerFor)
-{
-  std::vector<qi::Future<void>> futures;
-  qi::Future<void> fut;
-  {
-    // allocate on heap to help asan & co
-    std::unique_ptr<qi::Strand> strand(new qi::Strand(*qi::getEventLoop()));
-    auto f = strand->schedulerFor([]{ ADD_FAILURE(); });
-    fut = qi::async([f, &futures]{
-          for (int i = 0; i < 300; ++i)
-            futures.push_back(f());
-        });
-  }
-  fut.wait();
-  for (auto& future : futures)
-    future.wait();
-}
-
-std::atomic<int> callcount;
+boost::atomic<int> callcount;
 
 struct MyActor : qi::Actor
 {
-  std::atomic<bool> calling;
+  boost::atomic<bool> calling;
   MyActor() : calling(0) {}
-  ~MyActor() { joinTasks(); }
+  ~MyActor() { strand()->join(); }
   int f(int end, qi::Promise<void> finished)
   {
     int startval = prop.get();
@@ -347,7 +329,7 @@ TEST(TestStrand, AllFutureSignalPropertyPeriodicTaskAsyncCallTypeErased)
     for (int i = 0; i < 50; ++i)
       signal.connect(&MyActor::f, obj.get(), _1, finished);
     for (int i = 0; i < 50; ++i)
-      aobj.connect("sig", boost::function<void(int)>(obj->stranded(boost::bind(&MyActor::f, obj, _1, finished))));
+      aobj.connect("sig", boost::function<void(int)>(obj->strand()->schedulerFor(boost::bind(&MyActor::f, obj, _1, finished))));
 
     per.start();
     for (int i = 0; i < 25; ++i)

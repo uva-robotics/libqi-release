@@ -29,12 +29,12 @@ namespace qi {
     qi::uint64_t index;
     std::string  description;
   };
-  using FieldInfoVector = std::vector<FieldInfo>;
+  typedef std::vector<FieldInfo> FieldInfoVector;
 
-  using TypeSignature = Signature;
+  typedef Signature TypeSignature;
 
   class AnyType;
-  using AnyTypeVector = std::vector<AnyType>;
+  typedef std::vector<AnyType> AnyTypeVector;
 
   QI_API AnyType makeTypeOf(TypeKind kind);
   QI_API AnyType makeTypeList(const AnyType& element);

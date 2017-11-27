@@ -157,7 +157,7 @@ namespace detail
       {
         AnyReference val = *it;
         if (!needConvert)
-          result.append(val);
+          result._append(val);
         else
         {
           std::pair<AnyReference,bool> c = val.convert(dstElemType);
@@ -168,7 +168,7 @@ namespace detail
             result.destroy();
             return std::make_pair(AnyReference(), false);
           }
-          result.append(c.first);
+          result._append(c.first);
           if (c.second)
             c.first.destroy();
         }
@@ -438,7 +438,7 @@ namespace detail
       for (unsigned i = 0; i < dstNames.size(); ++i)
         if (std::find(fieldMap.begin(), fieldMap.end(), i) != fieldMap.end())
           fields[dstNames[i]].reset(AnyReference(dstTypes[i], targetData[i]), false, mustDestroy[i]);
-      mustDestroy.assign(mustDestroy.size(), false);
+      mustDestroy.assign(false, mustDestroy.size());
       // attempt both conversions
       if (!tsrc->convertTo(fields, fieldMissing, fieldDrop) &&
           !tdst->convertFrom(fields, fieldMissing, fieldDrop))
@@ -468,7 +468,7 @@ namespace detail
       std::vector<void*> sourceData = tsrc->get(_value);
       std::vector<TypeInterface*> srcTypes = tsrc->memberTypes();
       std::vector<TypeInterface*> dstTypes = tdst->memberTypes();
-      QI_ASSERT(sourceData.size() == srcTypes.size());
+      assert(sourceData.size() == srcTypes.size());
       if (srcTypes.size() != dstTypes.size())
       {
         qiLogVerbose() << "Conversion glitch: tuple size mismatch between " << tsrc->infoString() << " and " << tdst->infoString();
@@ -553,7 +553,7 @@ namespace detail
           size_t rpos = riter-elems.begin();
 
           AnyReference ref = (*iter)[1];
-          QI_ASSERT(ref.isValid());
+          assert(ref.isValid());
 
           std::pair<AnyReference, bool> conv =
             ref.convert(dstTypes[rpos]);
@@ -686,7 +686,7 @@ namespace detail
           if (!cv.first._type)
             return std::make_pair(AnyReference(), false);
         }
-        result.insert(sameKey?kv[0]:ck.first, sameElem?kv[1]:cv.first);
+        result._insert(sameKey?kv[0]:ck.first, sameElem?kv[1]:cv.first);
         if (!sameKey && ck.second)
           ck.first.destroy();
         if (!sameElem && cv.second)
@@ -719,7 +719,7 @@ namespace detail
           result.destroy();
           return std::make_pair(AnyReference(), false);
         }
-        result.insert(conv.first[0], conv.first[1]);
+        result._insert(conv.first[0], conv.first[1]);
         if (conv.second)
           conv.first.destroy();
         ++srcBegin;
@@ -755,7 +755,7 @@ namespace detail
           result.destroy();
           return std::make_pair(AnyReference(), false);
         }
-        result.insert(AnyReference::from(srcElementName[i]), conv.first);
+        result._insert(AnyReference::from(srcElementName[i]), conv.first);
         if (conv.second)
           conv.first.destroy();
       }
@@ -1112,7 +1112,7 @@ namespace detail
     return to<AnyObject>();
   }
 
-  AnyReference AnyReferenceBase::_element(const AnyReference& key, bool throwOnFailure, bool autoInsert)
+  AnyReference AnyReferenceBase::_element(const AnyReference& key, bool throwOnFailure)
   {
     if (kind() == TypeKind_List || kind() == TypeKind_VarArgs)
     {
@@ -1133,7 +1133,10 @@ namespace detail
       std::pair<AnyReference, bool> c = key.convert(t->keyType());
       if (!c.first._type)
         throw std::runtime_error("Incompatible key type");
-      AnyReference result = t->element(&_value, c.first._value, autoInsert);
+      // HACK: should be two separate booleans
+      bool autoInsert = throwOnFailure;
+      AnyReference result
+          = t->element(&_value, c.first._value, autoInsert);
       if (c.second)
         c.first.destroy();
       return result;
@@ -1156,39 +1159,28 @@ namespace detail
       throw std::runtime_error("Expected List, Map or Tuple kind");
   }
 
-  void AnyReferenceBase::append(const AnyReference& elem)
+  void AnyReferenceBase::_append(const AnyReference& elem)
   {
     if (kind() != TypeKind_List && kind() != TypeKind_VarArgs)
       throw std::runtime_error("Expected a list");
     ListTypeInterface* t = static_cast<ListTypeInterface*>(_type);
     std::pair<AnyReference, bool> c = elem.convert(t->elementType());
-
-    if (!c.first.isValid())
-      throwConversionFailure(elem._type, t->elementType(), "(invalid value type)");
-
     t->pushBack(&_value, c.first._value);
     if (c.second)
       c.first.destroy();
   }
 
-  void AnyReferenceBase::insert(const AnyReference& key, const AnyReference& val)
+  void AnyReferenceBase::_insert(const AnyReference& key, const AnyReference& val)
   {
     if (kind() != TypeKind_Map)
       throw std::runtime_error("Expected a map");
     std::pair<AnyReference, bool> ck(key, false);
     std::pair<AnyReference, bool> cv(val, false);
     MapTypeInterface* t = static_cast<MapTypeInterface*>(_type);
-
     if (key._type != t->keyType())
       ck = key.convert(t->keyType());
-    if (!ck.first.isValid())
-      throwConversionFailure(key._type, t->keyType(), "(invalid key type)");
-
     if (val._type != t->elementType())
       cv = val.convert(t->elementType());
-    if (!cv.first.isValid())
-      throwConversionFailure(val._type, t->elementType(), "(invalid value type)");
-
     t->insert(&_value, ck.first._value, cv.first._value);
     if (ck.second)
       ck.first.destroy();
@@ -1425,7 +1417,7 @@ namespace detail
   }
 
 
-  QI_NORETURN void throwConversionFailure(TypeInterface* from, TypeInterface* to, const std::string& additionalMsg)
+  QI_NORETURN void throwConversionFailure(TypeInterface* from, TypeInterface* to)
   {
     std::stringstream msg;
     msg << "Conversion from ";
@@ -1440,8 +1432,7 @@ namespace detail
     } else {
       msg << "NULL Type";
     }
-    msg << " failed ";
-    msg << additionalMsg;
+    msg << " failed";
     qiLogWarning() << msg.str();
     throw std::runtime_error(msg.str());
   }

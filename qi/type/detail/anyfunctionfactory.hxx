@@ -32,7 +32,6 @@
 #include <boost/thread/mutex.hpp>
 #include <qi/atomic.hpp>
 #include <qi/anyvalue.hpp>
-#include <qi/type/traits.hpp>
 
 namespace qi
 {
@@ -65,18 +64,18 @@ namespace qi
     template <typename T, bool isWordSize>
     struct EqTypeBase
     {
-      using type = T;
-      using rType = T;
-      using isReference = typename boost::is_reference<T>::type;
+      typedef T type;
+      typedef T rType;
+      typedef typename boost::is_reference<T>::type isReference;
       static const int dbgTag = 0;
     };
 
     template<typename T>
     struct EqTypeBase<T, true>
     {
-      using type = typename boost::mpl::if_<typename boost::is_fundamental<T>::type, void*, T>::type;
-      using rType =  typename boost::mpl::if_<typename boost::is_fundamental<T>::type, void*, T>::type;
-      using isReference = typename boost::is_reference<T>::type;
+      typedef typename boost::mpl::if_<typename boost::is_fundamental<T>::type, void*, T>::type type;
+      typedef typename boost::mpl::if_<typename boost::is_fundamental<T>::type, void*, T>::type rType;
+      typedef typename boost::is_reference<T>::type isReference;
       static const int dbgTag = 1;
     };
 
@@ -87,45 +86,45 @@ namespace qi
 
     template <> struct EqType<void>
     {
-      using type = void;
-      using rType = void*;
-      using isReference = boost::false_type;
+      typedef void type;
+      typedef void* rType;
+      typedef boost::false_type isReference;
     };
 
     template<> struct EqType<double>
     {
-      using type = double;
-      using rType = double;
-      using isReference = boost::false_type;
+      typedef double type;
+      typedef double rType;
+      typedef boost::false_type isReference;
     };
 
     template<> struct EqType<float>
     {
-      using type = float;
-      using rType = float;
-      using isReference = boost::false_type;
+      typedef float type;
+      typedef float rType;
+      typedef boost::false_type isReference;
     };
 
     template<> struct EqType<bool>
     {
-      using type = bool;
-      using rType = bool;
-      using isReference = boost::false_type;
+      typedef bool type;
+      typedef bool rType;
+      typedef boost::false_type isReference;
     };
 
     template <typename T> struct EqType<T&>
     {
-      using type = void*;
-      using rType = void*;
-      using isReference = boost::true_type;
+      typedef void* type;
+      typedef void* rType;
+      typedef boost::true_type isReference;
       static const int dbgTag = 2;
     };
 
     template <typename T> struct EqType<T const &>
     {
-      using type = void*;
-      using rType = void*;
-      using isReference = boost::true_type;
+      typedef void* type;
+      typedef void* rType;
+      typedef boost::true_type isReference;
       static const int dbgTag = 3;
     };
 
@@ -134,9 +133,9 @@ namespace qi
     template <typename T>
     struct EqType<T *>
     {
-      using type = void*;
-      using rType = void*;
-      using isReference = boost::true_type;
+      typedef void* type;
+      typedef void* rType;
+      typedef boost::true_type isReference;
       static const int dbgTag = 4;
     };
 
@@ -144,7 +143,7 @@ namespace qi
     template<typename S, typename I, int p>
     struct RefMasqBuilderHelper
     {
-      using type = typename boost::mpl::deref<I>::type;
+      typedef typename boost::mpl::deref<I>::type type;
       static const unsigned int isRef = EqType<type>::isReference::value;
       static const unsigned long vSelf = isRef << p;
       static const unsigned long val = vSelf + RefMasqBuilderHelper<S,
@@ -162,38 +161,40 @@ namespace qi
    */
     template<typename F> struct EqFunctionBare
     {
-      using Components = typename boost::function_types::components<F>::type;
+      typedef typename boost::function_types::components<F>::type Components;
 
-      using Arguments = typename boost::function_types::parameter_types<F>::type;
-      using Result = typename boost::function_types::result_type<F>::type;
+      typedef typename boost::function_types::parameter_types<F>::type Arguments;
+      typedef typename boost::function_types::result_type<F>::type Result;
 
       // need to handle result type separately
-      using EqArguments = typename boost::mpl::transform<Arguments, EqType<boost::mpl::_1>>::type;
-      using EqResult = typename EqType<Result>::rType;
-      using EqComponents = typename boost::mpl::push_front<EqArguments, EqResult>::type;
+      typedef typename boost::mpl::transform<Arguments,
+      EqType<boost::mpl::_1> >::type EqArguments;
+      typedef typename EqType<Result>::rType EqResult;
+      typedef typename boost::mpl::push_front<EqArguments, EqResult>::type EqComponents;
 
       // Bit b is set if argument index b+1 (0=return type) is a reference.
       static const unsigned long refMask = RefMasqBuilderHelper<Components,
       typename boost::mpl::begin<Components>::type, 0>::val;
-      using type = typename boost::function_types::function_type<EqComponents>::type;
+      typedef typename boost::function_types::function_type<EqComponents>::type type;
     };
 
     template<typename F> struct EqMemberFunction
     {
-      using Components = typename boost::function_types::components<F>::type;
+      typedef typename boost::function_types::components<F>::type Components;
       // we need to handle object type and return type separately
       // arguments with object
-      using MethodArguments = typename boost::function_types::parameter_types<F>::type;
+      typedef typename boost::function_types::parameter_types<F>::type MethodArguments;
       // arguments without object
-      using Arguments = typename boost::mpl::pop_front<MethodArguments>::type;
+      typedef typename boost::mpl::pop_front<MethodArguments>::type Arguments;
       // return type
-      using Result = typename boost::function_types::result_type<F>::type;
-      using EqArguments = typename boost::mpl::transform<Arguments, EqType<boost::mpl::_1> >::type;
-      using EqResult = typename EqType<Result>::rType;
+      typedef typename boost::function_types::result_type<F>::type Result;
+      typedef typename boost::mpl::transform<Arguments,
+      EqType<boost::mpl::_1> >::type EqArguments;
+      typedef typename EqType<Result>::rType EqResult;
       // push equivalent object type
-      using EqComponentsInt = typename boost::mpl::push_front<EqArguments, detail::Class&>::type;
-      using EqComponents = typename boost::mpl::push_front<EqComponentsInt, EqResult>::type;
-      using type = typename boost::function_types::member_function_pointer<EqComponents>::type;
+      typedef typename boost::mpl::push_front<EqArguments, detail::Class&>::type EqComponentsInt;
+      typedef typename boost::mpl::push_front<EqComponentsInt, EqResult>::type EqComponents;
+      typedef typename boost::function_types::member_function_pointer<EqComponents>::type type;
       static const unsigned long refMask = RefMasqBuilderHelper<Components,
       typename boost::mpl::begin<Components>::type, 0>::val;
     };
@@ -239,11 +240,9 @@ namespace qi
     template <typename T>
     struct AssignAnyRef
     {
-      template<class X>
-      static void assignAnyRef(AnyReference* ref, X&& any)
+      static void assignAnyRef(AnyReference* ref, T any)
       {
-        using CopyType = typename std::decay<T>::type;
-        *ref = AnyReference(qi::typeOf<T>(), new CopyType(std::forward<X>(any)));
+        *ref = AnyReference(qi::typeOf<T>(), new T(std::move(any)));
       }
     };
 
@@ -257,9 +256,9 @@ namespace qi
     };
 
     template <typename T>
-    void operator,(AnyReferenceCopy& g, T&& any)
+    void operator,(AnyReferenceCopy& g, T any)
     {
-      AssignAnyRef<T>::assignAnyRef(&g, std::forward<T>(any));
+      AssignAnyRef<T>::assignAnyRef(&g, std::move(any));
     }
 
     // makeCall function family
@@ -368,7 +367,7 @@ namespace qi
   class FunctionTypeInterfaceEq: public FunctionTypeInterface
   {
   public:
-    using ReturnType = typename boost::function_types::result_type<T>::type;
+    typedef typename boost::function_types::result_type<T>::type ReturnType;
     FunctionTypeInterfaceEq(unsigned long refMask)
       : refMask(refMask)
     {
@@ -376,7 +375,7 @@ namespace qi
       detail::functionTypeTrack(typeid(S).name());
 #endif
     }
-    void* call(void* storage, void** args, unsigned int argc) override
+    virtual void* call(void* storage, void** args, unsigned int argc)
     {
 #if QI_HAS_VARIABLE_LENGTH_ARRAY
       void* out[argc];
@@ -392,9 +391,8 @@ namespace qi
       void* v = detail::makeCall(*(S*)ptrFromStorage(&storage), (void**)out);
       // v is storage for type ReturnType we claimed we were
       // adapt return value if needed
-      if (boost::is_pointer<ReturnType>::value &&
-          (_resultType->kind() != TypeKind_Pointer ||
-           static_cast<PointerTypeInterface*>(_resultType)->pointerKind() != PointerTypeInterface::Raw))
+      if (boost::is_pointer<ReturnType>::value
+          &&  _resultType->kind() != TypeKind_Pointer)
       {
         // if refMask&1, real return type is some Foo& and v is Foo*
         // else, return type is Foo with sizeof(Foo) == sizeof(void*) and v is a Foo
@@ -417,7 +415,7 @@ namespace qi
     { // we need to hash/compare on all the arguments
       std::vector<TypeInterface*> key(argsType);
       key.push_back(returnType);
-      using FTMap = std::map<InfosKeyMask, FunctionTypeInterfaceEq<T, S>*>;
+      typedef std::map<InfosKeyMask,  FunctionTypeInterfaceEq<T, S>* > FTMap;
       static FTMap* ftMap = 0;
       static boost::mutex* mutex = 0;
       QI_THREADSAFE_NEW(ftMap, mutex);
@@ -454,18 +452,12 @@ namespace qi
     };
     template<typename T> struct remove_constptr
     {
-      using type = T;
+      typedef T type;
     };
-
-
     template<typename T> struct remove_constptr<const T*>
     {
-      using type = T*;
+      typedef T* type;
     };
-
-    template <typename T>
-    using remove_constptr_t = typename remove_constptr<T>::type;
-
     // Fill a vector<TypeInterface*> from a T*
     struct fill_arguments
     {
@@ -487,18 +479,18 @@ namespace qi
     // build a function pointer or member function pointer type
     template<typename F, bool Member> struct FunctionPointerSynthetizer
     {
-      using type = typename  boost::function_types::member_function_pointer<F>::type;
+      typedef typename  boost::function_types::member_function_pointer<F>::type type;
     };
     template<typename F> struct FunctionPointerSynthetizer<F, false>
     {
-      using type = typename boost::function_types::function_pointer<F>::type;
+      typedef typename boost::function_types::function_pointer<F>::type type;
     };
     // Accept a function pointer or member function pointer
     template<typename F>
     AnyFunction makeAnyFunctionBare(F func)
     {
-      using ArgsType = typename boost::function_types::parameter_types<F>::type;
-      using ResType = typename boost::function_types::result_type<F>::type;
+      typedef typename boost::function_types::parameter_types<F>::type ArgsType;
+      typedef typename boost::function_types::result_type<F>::type ResType;
       TypeInterface* resultType = typeOf<ResType>();
       std::vector<TypeInterface*> argumentsType;
       // Generate and store a TypeInterface* for each argument
@@ -507,13 +499,12 @@ namespace qi
           boost::add_pointer<
           boost::remove_const<
           boost::remove_reference<boost::mpl::_1> > > > >(detail::fill_arguments(&argumentsType));
-      using MapedF = typename EqFunction<F>::type;
+      typedef typename EqFunction<F>::type MapedF;
       // regenerate eq function pointer type
-      using EqComponents = typename boost::function_types::components<MapedF>::type;
+      typedef typename boost::function_types::components<MapedF>::type EqComponents;
       // would have used mpl::if_ but it has laziness issues it seems
-      using EqFunPtr =
-          typename FunctionPointerSynthetizer<EqComponents, boost::is_member_function_pointer<F>::value>::type;
-
+      typedef typename FunctionPointerSynthetizer<EqComponents,
+          boost::is_member_function_pointer<F>::value>::type EqFunPtr;
       unsigned long mask = EqFunction<F>::refMask;
       FunctionTypeInterface* ftype = FunctionTypeInterfaceEq<MapedF, EqFunPtr>::make(mask, argumentsType, resultType);
 
@@ -590,8 +581,8 @@ namespace qi
       /* Do not try to reduce anything on a boost::function.
       * It will bounce to an internal template backend anyway
       */
-      using ArgsType = typename boost::function_types::parameter_types<F>::type;
-      using ResType = typename boost::function_types::result_type<F>::type;
+      typedef typename boost::function_types::parameter_types<F>::type ArgsType;
+      typedef typename boost::function_types::result_type<F>::type ResType;
       TypeInterface* resultType = typeOf<ResType>();
       std::vector<TypeInterface*> argumentsType;
       boost::mpl::for_each<
@@ -606,26 +597,9 @@ namespace qi
     // Use helper structures for which template partial specialisation is possible
     template<typename T> struct AnyFunctionMaker
     {
-    private:
-      template<typename U>
-      static AnyFunction dispatch(U&& func, type::True is_function_object)
+      static AnyFunction make(T func)
       {
-        return AnyFunctionMaker<boost::function<type::Function<T>>>::make(std::forward<U>(func));
-      }
-      template<typename U>
-      static AnyFunction dispatch(U&& func, type::False is_function_object)
-      {
-        return makeAnyFunctionBare(std::forward<U>(func));
-      }
-    public:
-      /// U&& is used to allow the passing of a T lvalue _or_ rvalue.
-      /// T&& would force a T rvalue.
-      template<typename U>
-      static AnyFunction make(U&& func)
-      {
-        // If T is a function object (a lambda for example), type-erase it with a boost::function
-        // to allow the type system to handle it.
-        return dispatch(std::forward<U>(func), type::IsFunctionObject<T>{});
+        return makeAnyFunctionBare(func);
       }
     };
     template<typename T> struct AnyFunctionMaker<T*>
@@ -640,8 +614,8 @@ namespace qi
     {
       static AnyFunction make(boost::_bi::bind_t<R, F, B> v)
       {
-        using CompatType =
-            typename boost::function<typename boost_bind_function_type<boost::_bi::bind_t<R, F, B>>::type>;
+        typedef typename boost::function<typename boost_bind_function_type<
+            boost::_bi::bind_t<R, F, B> >::type> CompatType;
         CompatType f = v;
         return AnyFunction::from(f);
       }
@@ -650,8 +624,7 @@ namespace qi
     {
       static AnyFunction make(boost::function<T> func)
       {
-        static_assert(sizeof(boost::function<T>) == sizeof(boost::function<void()>),
-                      "boost::functions are not all the same size");
+        assert(sizeof(boost::function<T>) == sizeof(boost::function<void ()>));
         AnyFunction res = detail::makeAnyFunctionBare(func);
         return res;
       }
@@ -668,10 +641,9 @@ namespace qi
   }
 
   template<typename T>
-  AnyFunction AnyFunction::from(T&& f)
+  AnyFunction AnyFunction::from(T f)
   {
-    // If an lvalue is passed, T is deduced to be U&, so remove the reference.
-    return detail::AnyFunctionMaker<type::RemoveRef<T>>::make(std::forward<T>(f));
+    return detail::AnyFunctionMaker<T>::make(f);
   }
 
   namespace detail
@@ -698,17 +670,17 @@ namespace qi
     /* Taking a AnyFunction of F will likely imply a typeOf<C> which is
     * unnecessary. So use a fake class in signature.
     */
-    using Result = typename boost::function_types::result_type<F>::type;
-    using Args = typename boost::function_types::parameter_types<F, boost::mpl::identity<boost::mpl::_1> >::type;
-    using ArgsNoClass = typename boost::mpl::pop_front<Args>::type;
-    using ArgsFakeClass = typename boost::mpl::push_front<ArgsNoClass, detail::Class&>::type;
-    using ComponentsFaked = typename boost::mpl::push_front<ArgsFakeClass, Result>::type;
-    using MethodTypeFaked = typename boost::function_types::member_function_pointer<ComponentsFaked>::type;
+    typedef typename boost::function_types::result_type<F>::type Result;
+    typedef typename boost::function_types::parameter_types<F, boost::mpl::identity<boost::mpl::_1> >::type Args;
+    typedef typename boost::mpl::pop_front<Args>::type ArgsNoClass;
+    typedef typename boost::mpl::push_front<ArgsNoClass, detail::Class&>::type ArgsFakeClass;
+    typedef typename boost::mpl::push_front<ArgsFakeClass, Result>::type ComponentsFaked;
+    typedef typename boost::function_types::member_function_pointer<ComponentsFaked>::type MethodTypeFaked;
     MethodTypeFaked newFunk = *(MethodTypeFaked*)(void*)&func;
     AnyFunction res = AnyFunction::from(newFunk);
 
     // Dynamic-cast instance to expected pointer type.
-    using FirstArg = typename boost::mpl::at_c<Args, 0>::type;
+    typedef typename boost::mpl::at_c<Args, 0>::type FirstArg;
     // Get expected
     FirstArg* ptr = dynamic_cast<FirstArg*>(detail::Pointer<C>::pointer(instance));
     if (!ptr && instance)

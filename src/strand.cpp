@@ -3,34 +3,76 @@
 **  See COPYING for the license
 */
 #include <atomic>
-#include <boost/atomic.hpp>
-
 #include <qi/strand.hpp>
 #include <qi/log.hpp>
 #include <qi/future.hpp>
 #include <qi/getenv.hpp>
+#include <deque>
+#include <boost/enable_shared_from_this.hpp>
 
 qiLogCategory("qi.strand");
 
 namespace qi {
 
-enum class StrandPrivate::State
+class StrandPrivate : public boost::enable_shared_from_this<StrandPrivate>
 {
-  None,
-  Scheduled,
-  Running,
-  Canceled,
-  // we don't care about finished state
+public:
+  enum class State
+  {
+    None,
+    Scheduled,
+    Running,
+    Canceled
+    // we don't care about finished state
+  };
+
+  struct Callback
+  {
+    uint32_t id;
+    State state;
+    boost::function<void()> callback;
+    qi::Promise<void> promise;
+    qi::Future<void> asyncFuture;
+  };
+
+  typedef std::deque<boost::shared_ptr<Callback> > Queue;
+
+  qi::ExecutionContext& _eventLoop;
+  boost::atomic<unsigned int> _curId;
+  boost::atomic<unsigned int> _aliveCount;
+  bool _processing; // protected by mutex, no need for atomic
+  boost::atomic<int> _processingThread;
+  boost::mutex _mutex;
+  boost::condition_variable _processFinished;
+  bool _dying;
+  Queue _queue;
+
+  StrandPrivate(qi::ExecutionContext& eventLoop);
+  ~StrandPrivate();
+
+  Future<void> asyncAtImpl(boost::function<void()> cb, qi::SteadyClockTimePoint tp);
+  Future<void> asyncDelayImpl(boost::function<void()> cb, qi::Duration delay);
+
+  boost::shared_ptr<Callback> createCallback(boost::function<void()> cb);
+  void enqueue(boost::shared_ptr<Callback> cbStruct);
+
+  void process();
+  void cancel(boost::shared_ptr<Callback> cbStruct);
 };
 
-struct StrandPrivate::Callback
+StrandPrivate::StrandPrivate(qi::ExecutionContext& eventLoop)
+  : _eventLoop(eventLoop)
+  , _curId(0)
+  , _aliveCount(0)
+  , _processing(false)
+  , _processingThread(0)
+  , _dying(false)
 {
-  uint32_t id;
-  State state;
-  boost::function<void()> callback;
-  qi::Promise<void> promise;
-  qi::Future<void> asyncFuture;
-};
+}
+
+StrandPrivate::~StrandPrivate()
+{
+}
 
 boost::shared_ptr<StrandPrivate::Callback> StrandPrivate::createCallback(boost::function<void()> cb)
 {
@@ -73,62 +115,41 @@ Future<void> StrandPrivate::asyncDelayImpl(boost::function<void()> cb, qi::Durat
 
 void StrandPrivate::enqueue(boost::shared_ptr<Callback> cbStruct)
 {
-  const bool shouldschedule = [&]()
+  qiLogDebug() << "Enqueueing job id " << cbStruct->id;
+  bool shouldschedule = false;
+
   {
     boost::mutex::scoped_lock lock(_mutex);
-    qiLogDebug() << "Enqueueing job id " << cbStruct->id;
     // the callback may have been canceled
     if (cbStruct->state == State::None)
     {
       if (_dying)
       {
         cbStruct->promise.setError("the strand is dying");
-        qiLogDebug() << "Strand is dying on job id " << cbStruct->id;
-        return false;
+        return;
       }
 
-      qiLogDebug() << "Strand callback state is None on job id " << cbStruct->id;
       _queue.push_back(cbStruct);
       cbStruct->state = State::Scheduled;
     }
     else
     {
-      QI_ASSERT(cbStruct->state == State::Canceled);
+      assert(cbStruct->state == State::Canceled);
       qiLogDebug() << "Job was canceled, dropping";
-      return false;
+      return;
     }
     // if process was not scheduled yet, do it, there is work to do
     if (!_processing)
     {
-      qiLogDebug() << "Schedule process on job id " << cbStruct->id;
       _processing = true;
-      return true;
+      shouldschedule = true;
     }
-
-    return false;
-  }();
+  }
 
   if (shouldschedule)
   {
     qiLogDebug() << "StrandPrivate::process was not scheduled, doing it";
     _eventLoop.async(boost::bind(&StrandPrivate::process, shared_from_this()));
-  }
-}
-
-void StrandPrivate::stopProcess(boost::mutex::scoped_lock& lock,
-                                bool finished)
-{
-  // if we still have work
-  if (!finished && !_dying)
-  {
-    qiLogDebug() << "Strand quantum expired, rescheduling";
-    lock.unlock();
-    _eventLoop.async(boost::bind(&StrandPrivate::process, shared_from_this()));
-  }
-  else
-  {
-    _processing = false;
-    _processFinished.notify_all();
   }
 }
 
@@ -143,6 +164,8 @@ void StrandPrivate::process()
 
   qi::SteadyClockTimePoint start = qi::SteadyClock::now();
 
+  bool finished = false;
+
   do
   {
     boost::shared_ptr<Callback> cbStruct;
@@ -154,13 +177,12 @@ void StrandPrivate::process()
         break;
       }
 
-      QI_ASSERT(_processing);
+      assert(_processing);
       if (_queue.empty())
       {
         qiLogDebug() << "Queue empty, stopping";
-        stopProcess(lock, true);
-        _processingThread = 0;
-        return;
+        finished = true;
+        break;
       }
       cbStruct = _queue.front();
       _queue.pop_front();
@@ -195,7 +217,18 @@ void StrandPrivate::process()
 
   {
     boost::mutex::scoped_lock lock(_mutex);
-    stopProcess(lock, false);
+    // if we still have work
+    if (!finished && !_dying)
+    {
+      qiLogDebug() << "Strand quantum expired, rescheduling";
+      lock.unlock();
+      _eventLoop.async(boost::bind(&StrandPrivate::process, shared_from_this()));
+    }
+    else
+    {
+      _processing = false;
+      _processFinished.notify_all();
+    }
   }
 }
 
@@ -224,7 +257,7 @@ void StrandPrivate::cancel(boost::shared_ptr<Callback> cbStruct)
             break;
           }
         // state was scheduled, so the callback must be there
-        QI_ASSERT(erased);
+        assert(erased);
         // Silence compile warning unused erased
         (void)erased;
 
@@ -289,7 +322,7 @@ void Strand::join()
       prv->_queue.pop_front();
       if (task->state == StrandPrivate::State::Canceled)
         continue;
-      QI_ASSERT(task->state == StrandPrivate::State::Scheduled);
+      assert(task->state == StrandPrivate::State::Scheduled);
       task->promise.setError("the strand is dying");
       --prv->_aliveCount;
     }

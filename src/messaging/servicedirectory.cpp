@@ -46,23 +46,23 @@ namespace qi
       ob->setThreadingModel(ObjectThreadingModel_MultiThread);
       unsigned int id = 0;
       id = ob->advertiseMethod("service", &ServiceDirectory::service);
-      QI_ASSERT(id == qi::Message::ServiceDirectoryAction_Service);
+      assert(id == qi::Message::ServiceDirectoryAction_Service);
       id = ob->advertiseMethod("services", &ServiceDirectory::services);
-      QI_ASSERT(id == qi::Message::ServiceDirectoryAction_Services);
+      assert(id == qi::Message::ServiceDirectoryAction_Services);
       id = ob->advertiseMethod("registerService", &ServiceDirectory::registerService);
-      QI_ASSERT(id == qi::Message::ServiceDirectoryAction_RegisterService);
+      assert(id == qi::Message::ServiceDirectoryAction_RegisterService);
       id = ob->advertiseMethod("unregisterService", &ServiceDirectory::unregisterService);
-      QI_ASSERT(id == qi::Message::ServiceDirectoryAction_UnregisterService);
+      assert(id == qi::Message::ServiceDirectoryAction_UnregisterService);
       id = ob->advertiseMethod("serviceReady", &ServiceDirectory::serviceReady);
-      QI_ASSERT(id == qi::Message::ServiceDirectoryAction_ServiceReady);
+      assert(id == qi::Message::ServiceDirectoryAction_ServiceReady);
       id = ob->advertiseMethod("updateServiceInfo", &ServiceDirectory::updateServiceInfo);
-      QI_ASSERT(id == qi::Message::ServiceDirectoryAction_UpdateServiceInfo);
+      assert(id == qi::Message::ServiceDirectoryAction_UpdateServiceInfo);
       id = ob->advertiseSignal("serviceAdded", &ServiceDirectory::serviceAdded);
-      QI_ASSERT(id == qi::Message::ServiceDirectoryAction_ServiceAdded);
+      assert(id == qi::Message::ServiceDirectoryAction_ServiceAdded);
       id = ob->advertiseSignal("serviceRemoved", &ServiceDirectory::serviceRemoved);
-      QI_ASSERT(id == qi::Message::ServiceDirectoryAction_ServiceRemoved);
+      assert(id == qi::Message::ServiceDirectoryAction_ServiceRemoved);
       id = ob->advertiseMethod("machineId", &ServiceDirectory::machineId);
-      QI_ASSERT(id == qi::Message::ServiceDirectoryAction_MachineId);
+      assert(id == qi::Message::ServiceDirectoryAction_MachineId);
       ob->advertiseMethod("_socketOfService", &ServiceDirectory::_socketOfService);
       // used locally only, we do not export its id
       // Silence compile warning unused id
@@ -389,7 +389,7 @@ namespace qi
     (void)regid;
     _sdObject->serviceReady(qi::Message::Service_ServiceDirectory);
     //serviceDirectory must have id '1'
-    QI_ASSERT(regid == qi::Message::Service_ServiceDirectory);
+    assert(regid == qi::Message::Service_ServiceDirectory);
 
     _server->_server.endpointsChanged.connect(boost::bind(&Session_SD::updateServiceInfo, this));
 

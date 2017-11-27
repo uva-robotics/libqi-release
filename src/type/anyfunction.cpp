@@ -323,7 +323,7 @@ namespace qi
     {
       _resultType = typeOf<AnyValue>();
     }
-    void* call(void* func, void** args, unsigned int argc) override
+    virtual void* call(void* func, void** args, unsigned int argc)
     {
       qiLogError() << "Dynamic function called without type information";
       return  nullptr;

@@ -41,7 +41,7 @@ namespace qi
   };
 }
 class noSigForThis;
-using MapInt = std::map<int, int>;
+typedef std::map<int, int> MapInt;
 
 TEST(TestSignature, BasicTypeSignature) {
   EXPECT_EQ("b",    qi::signatureFromType<bool>::value());
@@ -164,22 +164,22 @@ TEST(TestSignature, NamedTuple) {
 
 TEST(TestSignature, ComplexTypeSignature) {
   //{ii}
-  using MapInt = std::map<int, int>;
+  typedef std::map<int,int> MapInt;
   //{{ii}{ii}}
-  using MapInt2 = std::map<MapInt, MapInt>;
-  using VectorMapInt2 = std::vector<MapInt2>;
+  typedef std::map<MapInt,MapInt>        MapInt2;
+  typedef std::vector<MapInt2>           VectorMapInt2;
 
   // MapInt2& Does not works
-  using MapInt2Ref = MapInt2;
+  typedef MapInt2                        MapInt2Ref;
 
-  using VectMapInt2Ref = std::vector<MapInt2Ref>;
+  typedef std::vector<MapInt2Ref>        VectMapInt2Ref;
 
-  // const VectMapInt2Ref does not works
-  using VectMapInt2RefConst = VectMapInt2Ref;
+  //const VectMapInt2Ref does not works
+  typedef VectMapInt2Ref                 VectMapInt2RefConst;
 
-  using VectVectMapInt2ConstRef = std::vector<VectMapInt2RefConst>;
+  typedef std::vector< VectMapInt2RefConst > VectVectMapInt2ConstRef;
 
-  using FuckinMap = std::map<VectorMapInt2, VectVectMapInt2ConstRef>;
+  typedef std::map<VectorMapInt2, VectVectMapInt2ConstRef> FuckinMap;
 
   //{[{{ii}{ii}}][[{{ii}{ii}}&]#]}
   //and obama said: Yes We Can!

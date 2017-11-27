@@ -16,7 +16,7 @@ struct WatchOptions
   {}
 };
 
-using SubCmd = int (*)(int argc, char **argv, qi::ApplicationSession& app);
+typedef int (*SubCmd)(int argc, char **argv, qi::ApplicationSession& app);
 
 namespace po = boost::program_options;
 

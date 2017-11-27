@@ -108,9 +108,9 @@ namespace qi {
     template<typename F, typename T> void checkRegisterParent(
       ObjectTypeBuilder<T>& builder, boost::true_type)
     {
-      using ArgsType = typename boost::function_types::parameter_types<F>::type;
-      using DecoratedClassType = typename boost::mpl::front<ArgsType>::type;
-      using ClassType = typename boost::remove_reference<DecoratedClassType>::type;
+      typedef typename boost::function_types::parameter_types<F>::type ArgsType;
+      typedef typename boost::mpl::front<ArgsType>::type DecoratedClassType;
+      typedef typename boost::remove_reference<DecoratedClassType>::type ClassType;
       builder.template inherits<ClassType>();
     }
   };
@@ -162,7 +162,7 @@ namespace qi {
   typename boost::enable_if<typename detail::Accessor<A>::is_accessor, SignalBase*>::type
   signalAccess(A acc, void* instance)
   {
-    using class_type = typename detail::Accessor<A>::class_type;
+    typedef typename detail::Accessor<A>::class_type class_type;
     return &detail::Accessor<A>::access((class_type*)instance, acc);
   }
 
@@ -170,7 +170,7 @@ namespace qi {
   typename boost::enable_if<typename detail::Accessor<A>::is_accessor, PropertyBase*>::type
   propertyAccess(A acc, void* instance)
   {
-    using class_type = typename detail::Accessor<A>::class_type;
+    typedef typename detail::Accessor<A>::class_type class_type;
     return &detail::Accessor<A>::access((class_type*)instance, acc);
   }
 
@@ -179,7 +179,7 @@ namespace qi {
   ObjectTypeBuilderBase::advertiseSignal(const std::string& eventName, A accessor, int id)
   {
     SignalMemberGetter fun = boost::bind(&signalAccess<A>, accessor, _1);
-    using FunctionType = typename detail::Accessor<A>::value_type::FunctionType;
+    typedef typename detail::Accessor<A>::value_type::FunctionType FunctionType;
     return xAdvertiseSignal(eventName,
       detail::FunctionSignature<FunctionType>::signature(), fun, id);
   }
@@ -189,7 +189,7 @@ namespace qi {
   {
     unsigned int id = advertiseSignal(name, accessor);
     PropertyMemberGetter pg = boost::bind(&propertyAccess<A>, accessor, _1);
-    using PropertyType = typename detail::Accessor<A>::value_type::PropertyType;
+    typedef typename detail::Accessor<A>::value_type::PropertyType PropertyType;
     return xAdvertiseProperty(name, typeOf<PropertyType>()->signature(), pg, id);
   }
 

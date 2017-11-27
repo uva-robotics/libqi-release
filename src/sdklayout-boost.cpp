@@ -15,7 +15,6 @@
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/filesystem.hpp>
-#include <boost/predef/os.h>
 #include <boost/regex.hpp>
 #include <boost/foreach.hpp>
 #include <locale>
@@ -23,12 +22,6 @@
 #include "sdklayout.hpp"
 #include "utils.hpp"
 #include <boost/system/error_code.hpp>
-
-#ifndef _WIN32
-static const char SDK_LAYOUT_BOOST_SEPARATOR = ':';
-#else
-static const char SDK_LAYOUT_BOOST_SEPARATOR = ';';
-#endif
 
 qiLogCategory("qi.path.sdklayout");
 
@@ -73,23 +66,6 @@ std::string relative(
 
 namespace qi {
 
-namespace path {
-
-namespace detail {
-
-    std::string binSuffix()
-    {
-    #if BOOST_OS_WINDOWS && defined(NDEBUG)
-      return ".exe";
-    #elif BOOST_OS_WINDOWS && !defined(NDEBUG)
-      return "_d.exe";
-    #else
-      return "";
-    #endif
-    }
-  } // detail
-  } // path
-
   class PrivateSDKLayout
   {
   public:
@@ -106,32 +82,14 @@ namespace detail {
     void initSDKlayout()
     {
       std::string prefix = qi::Application::_suggestedSdkPath();
-      if (prefix.empty())
-      {
-        // no user specified sdk path (via --qi-sdk-prefix), try environment variable
-        prefix = qi::os::getenv("QI_SDK_PREFIX");
-      }
       if (!prefix.empty())
         _sdkPrefixes.push_back(prefix);
-
       initSDKlayoutFromExec();
+      const std::vector<std::string>& prefixes = qi::Application::_suggestedSdkPaths();
+      _sdkPrefixes.insert(_sdkPrefixes.end(), prefixes.begin(), prefixes.end());
 
-      // fetch additional sdk prefixes from the environment variable
-      {
-        std::vector<std::string> additionalSdkPrefixes;
-        std::string prefixes = qi::os::getenv("QI_ADDITIONAL_SDK_PREFIXES");
-        if (!prefixes.empty())
-        {
-          boost::algorithm::split(additionalSdkPrefixes,
-                                  prefixes,
-                                  boost::algorithm::is_from_range(SDK_LAYOUT_BOOST_SEPARATOR,
-                                                                  SDK_LAYOUT_BOOST_SEPARATOR));
-          _sdkPrefixes.insert(_sdkPrefixes.end(), additionalSdkPrefixes.begin(), additionalSdkPrefixes.end());
-        }
-      }
-      // log the results
-      for(const auto& p : _sdkPrefixes)
-        qiLogVerbose() << "Prefix: " << p;
+      BOOST_FOREACH(const std::string& prefix, _sdkPrefixes)
+        qiLogVerbose() << "Prefix: " << prefix;
     }
 
     void initSDKlayoutFromExec(bool real = false)
@@ -155,26 +113,16 @@ namespace detail {
       }
 
       boost::filesystem::path execPath(program, qi::unicodeFacet());
-      try
-      {
-        if(!boost::filesystem::exists(execPath))
+      if(!boost::filesystem::exists(execPath)) {
+        if (!real)
         {
-          if (!real)
-          {
-            return initSDKlayoutFromExec(true);
-          }
-          else
-          {
-            _mode = "error";
-            return;
-          }
+          return initSDKlayoutFromExec(true);
         }
-      }
-      catch (const boost::filesystem::filesystem_error &e)
-      {
-        qiLogError() << "Cannot access path '" << execPath << "': " << e.what();
-        _mode = "error";
-        return;
+        else
+        {
+          _mode = "error";
+          return;
+        }
       }
 
       execPath = boost::filesystem::system_complete(execPath).make_preferred();
@@ -192,7 +140,7 @@ namespace detail {
     void checkInit()
     {
       if (_mode == "error" || _sdkPrefixes.empty()) {
-        qiLogError() << "please call qi::Application first before using qi::path";
+        qiLogDebug() << "please call qi::Application first before using qi::path";
       }
     }
 
@@ -240,17 +188,15 @@ namespace detail {
       if (!filename.empty())
         dest = path.parent_path();
 
-      try
-      {
-        if (!boost::filesystem::exists(dest))
-        {
+      if (!boost::filesystem::exists(dest)) {
+        try {
           boost::filesystem::create_directories(dest);
         }
-      }
-      catch (const boost::filesystem::filesystem_error &e)
-      {
-        qiLogError() << "Cannot create directory '" << dest << "' error was: " << e.what();
-        return std::string();
+        catch (const boost::filesystem::filesystem_error &e)
+        {
+          qiLogError() << "Cannot create directory '" << dest << "' error was: " << e.what();
+          return std::string();
+        }
       }
       return path.string(qi::unicodeFacet());
     }
@@ -287,7 +233,7 @@ namespace detail {
     }
     catch (const boost::filesystem::filesystem_error &e)
     {
-      qiLogError() << e.what();
+      qiLogDebug() << e.what();
     }
     _p->_sdkPrefixes.push_back(prefixPath.string(qi::unicodeFacet()));
   }
@@ -314,98 +260,86 @@ namespace detail {
     return _p->_sdkPrefixes;
   }
 
-  static std::string existsFile(boost::filesystem::path prefix,
-                               const std::string& fileName)
-  {
-    const boost::filesystem::path file(fileName, qi::unicodeFacet());
-
-    try
-    {
-      const boost::filesystem::path pathFile(fsconcat(prefix.string(qi::unicodeFacet()),
-                                                      file.string(qi::unicodeFacet())),
-                                             qi::unicodeFacet());
-      const boost::filesystem::path pathFileSysComplete(boost::filesystem::system_complete(pathFile));
-
-      if (boost::filesystem::exists(pathFileSysComplete)
-          && !boost::filesystem::is_directory(pathFileSysComplete))
-        return (pathFileSysComplete.string(qi::unicodeFacet()));
-    }
-    catch (const boost::filesystem::filesystem_error &e)
-    {
-      qiLogError() << e.what();
-    }
-    return {};
-  }
-
   std::string SDKLayout::findBin(const std::string &name, bool searchInPath) const
   {
+    qi::Path bin = name;
     try
     {
-      const qi::Path bin(name);
       // try if the name is a full path
       bin = qi::Path(boost::filesystem::system_complete(bin.bfsPath()));
       if (bin.exists() && !bin.isDir())
         return bin.str();
 
-      for (const qi::Path& path : _p->_sdkPrefixes)
+      std::vector<std::string>::const_iterator it;
+      for (it = _p->_sdkPrefixes.begin();
+           it != _p->_sdkPrefixes.end();
+           ++it)
       {
-        const boost::filesystem::path p(path / "bin");
+        qi::Path p = *it;
+        p = p / "bin" / name;
 
-        std::string res = existsFile(p, name);
-        if (!res.empty())
-          return res;
-#ifdef _WIN32
-//DEBUG
+        if (p.exists() && !p.isDir())
+          return p.str();
 #ifndef NDEBUG
-        res = existsFile(p, name + "_d.exe");
-        if (!res.empty())
-          return res;
+        if (qi::Path(p.str() + "_d.exe").exists())
+          return p.str() + "_d.exe";
 #endif
-        res = existsFile(p, name + ".exe");
-        if (!res.empty())
-          return res;
-#endif
+        if (qi::Path(p.str() + ".exe").exists())
+          return p.str() + ".exe";
       }
     }
-    catch (const std::exception &e)
+    catch (const boost::filesystem::filesystem_error &e)
     {
-      qiLogError() << e.what();
+      qiLogDebug() << e.what();
     }
 
-    try
-    {
-      if (searchInPath)
-      {
-        // Look in $PATH now
-        std::vector<std::string> paths;
-        std::vector<std::string> pathExts;
-        std::string foo = qi::os::getenv("PATH");
-        boost::split(paths, foo, boost::is_any_of(qi::os::pathsep()));
-        std::string bar = qi::os::getenv("PATHEXT");
-        boost::split(pathExts, bar, boost::is_any_of(qi::os::pathsep()));
-        for (std::vector<std::string>::const_iterator it = paths.begin();
-             it != paths.end(); ++it) {
-          qi::Path path = *it;
-          path /= name;
-          if (path.exists())
-            return path.str();
-
-          // Only for windows
-          // Try with all extensions
-          for (std::vector<std::string>::const_iterator ext = pathExts.begin();
-               ext != pathExts.end(); ++ext) {
-            std::string pathExt = path.str() + "." + *ext;
-            if (qi::Path(pathExt).exists())
-              return pathExt;
-          }
+    if(searchInPath) {
+      // Look in $PATH now
+      std::vector<std::string> paths;
+      std::vector<std::string> pathExts;
+      std::string foo = qi::os::getenv("PATH");
+      boost::split(paths, foo, boost::is_any_of(qi::os::pathsep()));
+      std::string bar = qi::os::getenv("PATHEXT");
+      boost::split(pathExts, bar, boost::is_any_of(qi::os::pathsep()));
+      for (std::vector<std::string>::const_iterator it = paths.begin();
+           it != paths.end(); ++it) {
+        qi::Path path = *it;
+        path /= name;
+        if (path.exists())
+          return path.str();
+        // Try with all extensions
+        for (std::vector<std::string>::const_iterator ext = pathExts.begin();
+             ext != pathExts.end(); ++ext) {
+          std::string pathExt = path.str() + "." + *ext;
+          if (qi::Path(pathExt).exists())
+            return pathExt;
         }
       }
     }
-    catch (const std::exception &e)
-    {
-      qiLogError() << e.what();
-    }
 
+    return std::string();
+  }
+
+  static std::string existsLib(boost::filesystem::path prefix,
+                               const std::string& libName)
+  {
+    boost::filesystem::path lib(libName, qi::unicodeFacet());
+
+    try
+    {
+      boost::filesystem::path p(fsconcat(prefix.string(qi::unicodeFacet()),
+                                         lib.string(qi::unicodeFacet())),
+                                qi::unicodeFacet());
+
+      p = boost::filesystem::system_complete(p);
+      if (boost::filesystem::exists(p)
+          && !boost::filesystem::is_directory(p))
+        return (p.string(qi::unicodeFacet()));
+    }
+    catch (const boost::filesystem::filesystem_error &e)
+    {
+      qiLogDebug() << e.what();
+    }
     return std::string();
   }
 
@@ -419,7 +353,7 @@ namespace detail {
       std::string libName = module.filename().make_preferred().string(qi::unicodeFacet());
       std::string res;
 
-      res = existsFile(prefix.string(qi::unicodeFacet()), libName);
+      res = existsLib(prefix.string(qi::unicodeFacet()), libName);
       if (res != std::string())
         return res;
 
@@ -431,50 +365,50 @@ namespace detail {
         boost::filesystem::path p;
         p = boost::filesystem::path(fsconcat(*it, "lib", prefix.string(qi::unicodeFacet())), qi::unicodeFacet());
 
-        res = existsFile(p, libName);
+        res = existsLib(p, libName);
         if (res != std::string())
           return res;
-        res = existsFile(p, libName + ".so");
+        res = existsLib(p, libName + ".so");
         if (res != std::string())
           return res;
-        res = existsFile(p, "lib" + libName + ".so");
+        res = existsLib(p, "lib" + libName + ".so");
         if (res != std::string())
           return res;
-        res = existsFile(p, "lib" + libName);
+        res = existsLib(p, "lib" + libName);
         if (res != std::string())
           return res;
 #ifdef __APPLE__
-        res = existsFile(p, libName + ".dylib");
+        res = existsLib(p, libName + ".dylib");
         if (res != std::string())
           return res;
-        res = existsFile(p, "lib" + libName + ".dylib");
+        res = existsLib(p, "lib" + libName + ".dylib");
         if (res != std::string())
           return res;
-        res = existsFile(p, "lib" + libName);
+        res = existsLib(p, "lib" + libName);
         if (res != std::string())
           return res;
 #endif
 #ifdef _WIN32
 //DEBUG
 #ifndef NDEBUG
-        res = existsFile(p, libName + "_d.dll");
+        res = existsLib(p, libName + "_d.dll");
         if (res != std::string())
           return res;
-        res = existsFile(p, "lib" + libName + "_d.dll");
+        res = existsLib(p, "lib" + libName + "_d.dll");
         if (res != std::string())
           return res;
-        res = existsFile(p, "lib" + libName);
+        res = existsLib(p, "lib" + libName);
         if (res != std::string())
           return res;
 #endif
 
-        res = existsFile(p, libName + ".dll");
+        res = existsLib(p, libName + ".dll");
         if (res != std::string())
           return res;
-        res = existsFile(p, "lib" + libName + ".dll");
+        res = existsLib(p, "lib" + libName + ".dll");
         if (res != std::string())
           return res;
-        res = existsFile(p, "lib" + libName);
+        res = existsLib(p, "lib" + libName);
         if (res != std::string())
           return res;
 
@@ -482,24 +416,24 @@ namespace detail {
         p = boost::filesystem::path(fsconcat(*it, "bin", prefix.string(qi::unicodeFacet())), qi::unicodeFacet());
 
 #ifndef NDEBUG
-        res = existsFile(p, libName + "_d.dll");
+        res = existsLib(p, libName + "_d.dll");
         if (res != std::string())
           return res;
-        res = existsFile(p, "lib" + libName + "_d.dll");
+        res = existsLib(p, "lib" + libName + "_d.dll");
         if (res != std::string())
           return res;
-        res = existsFile(p, "lib" + libName);
+        res = existsLib(p, "lib" + libName);
         if (res != std::string())
           return res;
 #endif
 
-        res = existsFile(p, libName + ".dll");
+        res = existsLib(p, libName + ".dll");
         if (res != std::string())
           return res;
-        res = existsFile(p, "lib" + libName + ".dll");
+        res = existsLib(p, "lib" + libName + ".dll");
         if (res != std::string())
           return res;
-        res = existsFile(p, "lib" + libName);
+        res = existsLib(p, "lib" + libName);
         if (res != std::string())
           return res;
 #endif
@@ -507,17 +441,16 @@ namespace detail {
     }
     catch (const boost::filesystem::filesystem_error &e)
     {
-      qiLogError() << e.what();
+      qiLogDebug() << e.what();
     }
 
     return std::string();
   }
 
   std::string SDKLayout::findConf(const std::string &applicationName,
-                                  const std::string &filename,
-                                  bool excludeUserWritablePath) const
+                                  const std::string &filename) const
   {
-    std::vector<std::string> paths = confPaths(applicationName, excludeUserWritablePath);
+    std::vector<std::string> paths = confPaths(applicationName);
     try
     {
       std::vector<std::string>::const_iterator it;
@@ -532,7 +465,7 @@ namespace detail {
     }
     catch (const boost::filesystem::filesystem_error &e)
     {
-      qiLogError() << e.what();
+      qiLogDebug() << e.what();
     }
     return std::string();
   }
@@ -555,7 +488,7 @@ namespace detail {
     }
     catch (const boost::filesystem::filesystem_error &e)
     {
-      qiLogError() << e.what();
+      qiLogDebug() << e.what();
     }
     return std::string();
   }
@@ -606,7 +539,7 @@ namespace detail {
             const std::string fullPath = itD->path().string(qi::unicodeFacet());
             if (boost::regex_match(fullPath, pathRegex))
             {
-              std::string relativePath = ::relative(dataPath, itD->path());
+              std::string relativePath = relative(dataPath, itD->path());
               if (matchedPaths.find(relativePath) == matchedPaths.end())
               {
                 // we only add the match if it was not found in a previous
@@ -621,7 +554,7 @@ namespace detail {
       catch (const boost::filesystem::filesystem_error &e)
       {
         // log and continue
-        qiLogError() << e.what();
+        qiLogDebug() << e.what();
       }
     }
     return fullPaths;
@@ -660,14 +593,13 @@ namespace detail {
   }
 
 
-  std::vector<std::string> SDKLayout::confPaths(const std::string &applicationName, bool excludeUserWritablePath) const
+  std::vector<std::string> SDKLayout::confPaths(const std::string &applicationName) const
   {
     std::vector<std::string> res;
-    if (!excludeUserWritablePath)
-    {
-      // Pass an empty string to get the directory:
-      res.push_back(userWritableConfPath(applicationName, ""));
-    }
+
+    // Pass an empty string to get the directory:
+    res.push_back(userWritableConfPath(applicationName, ""));
+
     try
     {
       std::vector<std::string>::const_iterator it;
@@ -685,7 +617,7 @@ namespace detail {
     }
     catch (const boost::filesystem::filesystem_error &e)
     {
-      qiLogError() << e.what();
+      qiLogDebug() << e.what();
       return std::vector<std::string>();
     }
 

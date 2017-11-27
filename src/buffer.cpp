@@ -3,7 +3,6 @@
 **  See COPYING for the license
 */
 
-#include <qi/assert.hpp>
 #include <qi/buffer.hpp>
 #include <qi/log.hpp>
 
@@ -14,7 +13,6 @@
 #include <ctype.h>
 
 #include <boost/pool/singleton_pool.hpp>
-#include <boost/make_shared.hpp>
 
 #include "buffer_p.hpp"
 
@@ -41,11 +39,11 @@ namespace qi
   }
 
   struct MyPoolTag { };
-  using buffer_pool = boost::singleton_pool<MyPoolTag, sizeof(BufferPrivate)>;
+  typedef boost::singleton_pool<MyPoolTag, sizeof(BufferPrivate)> buffer_pool;
 
   void* BufferPrivate::operator new(size_t sz)
   {
-    QI_ASSERT(sz <= sizeof(BufferPrivate));
+    assert(sz <= sizeof(BufferPrivate));
     return buffer_pool::malloc();
   }
 
@@ -66,7 +64,7 @@ namespace qi
   }
 
   Buffer::Buffer()
-    : _p(boost::make_shared<BufferPrivate>())
+    : _p(boost::shared_ptr<BufferPrivate>(new BufferPrivate()))
   {
   }
 
@@ -78,20 +76,6 @@ namespace qi
   Buffer& Buffer::operator=(const Buffer& b)
   {
     _p = b._p;
-    return *this;
-  }
-
-  Buffer::Buffer(Buffer&& b)
-    : _p(std::move(b._p))
-  {
-    // The default state of a qi::Buffer contains a valid BufferPrivate pointer.
-    b._p = boost::make_shared<BufferPrivate>();
-  }
-
-  Buffer& Buffer::operator=(Buffer&& b)
-  {
-    _p = std::move(b._p);
-    b._p = boost::make_shared<BufferPrivate>();
     return *this;
   }
 

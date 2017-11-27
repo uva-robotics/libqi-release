@@ -35,7 +35,7 @@ namespace qi {
 
     MetaMethodParameterPrivate* _p;
   };
-  using MetaMethodParameterVector = std::vector<MetaMethodParameter>;
+  typedef std::vector<MetaMethodParameter> MetaMethodParameterVector;
 
   class MetaMethodPrivate;
   /// Representation of a method in an GenericObject.

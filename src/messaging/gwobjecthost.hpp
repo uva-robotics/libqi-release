@@ -18,9 +18,9 @@
 #include <qi/atomic.hpp>
 #include <qi/type/metaobject.hpp>
 
-using ServiceId = unsigned int;
-using ObjectId = unsigned int;
-using GwObjectId = unsigned int;
+typedef unsigned int ServiceId;
+typedef unsigned int ObjectId;
+typedef unsigned int GwObjectId;
 // This structure represent the address of the object within the client.
 // The same object can have multiple, different addresses if the client passes it
 // to multiple services.
@@ -57,7 +57,7 @@ class MetaObject;
 class Message;
 class TransportSocket;
 class GwTransaction;
-using TransportSocketPtr = boost::shared_ptr<TransportSocket>;
+typedef boost::shared_ptr<TransportSocket> TransportSocketPtr;
 
 class GwObjectHost
 {

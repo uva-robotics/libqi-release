@@ -17,45 +17,43 @@ qiLogCategory("qimessaging.clientauthenticator");
 
 namespace qi
 {
-  namespace client_authenticator_private
+
+  static CapabilityMap extractAuthData(const CapabilityMap& cmap)
   {
-    static CapabilityMap extractAuthData(const CapabilityMap& cmap)
+    CapabilityMap authData;
+    // Extract all capabilities related to authentication
+    for (CapabilityMap::const_iterator it = cmap.begin(), end = cmap.end(); it != end; ++it)
     {
-      CapabilityMap authData;
-      // Extract all capabilities related to authentication
-      for (CapabilityMap::const_iterator it = cmap.begin(), end = cmap.end(); it != end; ++it)
-      {
-        const std::string& key = it->first;
-        if (boost::algorithm::starts_with(key, QiAuthPrefix))
-          authData[key] = it->second;
-        else if (boost::algorithm::starts_with(key, AuthProvider::UserAuthPrefix))
-          authData[key.substr(AuthProvider::UserAuthPrefix.length(), std::string::npos)] = it->second;
-      }
-      return authData;
+      const std::string& key = it->first;
+      if (boost::algorithm::starts_with(key, QiAuthPrefix))
+        authData[key] = it->second;
+      else if (boost::algorithm::starts_with(key, AuthProvider::UserAuthPrefix))
+        authData[key.substr(AuthProvider::UserAuthPrefix.length(), std::string::npos)] = it->second;
     }
+    return authData;
+  }
 
-    static CapabilityMap prepareAuthCaps(const CapabilityMap& data)
+  static CapabilityMap prepareAuthCaps(const CapabilityMap& data)
+  {
+    CapabilityMap result;
+
+    for (CapabilityMap::const_iterator it = data.begin(), end = data.end(); it != end; ++it)
     {
-      CapabilityMap result;
-
-      for (CapabilityMap::const_iterator it = data.begin(), end = data.end(); it != end; ++it)
-      {
-        if (boost::algorithm::starts_with(it->first, QiAuthPrefix))
-          result[it->first] = it->second;
-        else
-          result[AuthProvider::UserAuthPrefix + it->first] = it->second;
-      }
-      return result;
+      if (boost::algorithm::starts_with(it->first, QiAuthPrefix))
+        result[it->first] = it->second;
+      else
+        result[AuthProvider::UserAuthPrefix + it->first] = it->second;
     }
-  } // client_authenticator_private
+    return result;
+  }
 
   CapabilityMap ClientAuthenticator::processAuth(const CapabilityMap &authData)
   {
     CapabilityMap result;
 
-    result = client_authenticator_private::extractAuthData(authData);
+    result = extractAuthData(authData);
     result = _processAuth(result);
-    return client_authenticator_private::prepareAuthCaps(result);
+    return prepareAuthCaps(result);
   }
 
 

@@ -38,11 +38,11 @@ namespace qi {
     qi::Promise<void>                       _connectionPromise;
   };
 
-  using TransportServerImplPtr = boost::shared_ptr<TransportServerImpl>;
+  typedef boost::shared_ptr<TransportServerImpl> TransportServerImplPtr;
 
 
   class TransportSocket;
-  using TransportSocketPtr = boost::shared_ptr<TransportSocket>;
+  typedef boost::shared_ptr<TransportSocket> TransportSocketPtr;
 
   class TransportServer : private boost::noncopyable
   {

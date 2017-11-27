@@ -72,7 +72,7 @@ namespace qi {
     executionContext = b.executionContext;
   }
 
-  static qi::Atomic<int> linkUid{1};
+  static qi::Atomic<int> linkUid = 1;
 
   void SignalBase::setCallType(MetaCallType callType)
   {
@@ -404,26 +404,26 @@ namespace qi {
       _p = boost::make_shared<SignalBasePrivate>();
     }
     // Check arity. Does not require to acquire weakLock.
-    int signalArity = signature().children().size();
-    int subscriberArity = -1;
-    Signature subscriberSignature = src.signature();
-    if (subscriberSignature.isValid())
-      subscriberArity = subscriberSignature.children().size();
+    int sigArity = signature().children().size();
+    int subArity = -1;
+    Signature subSignature = src.signature();
+    if (subSignature.isValid())
+      subArity = subSignature.children().size();
 
-    if (signature() != "m" && subscriberSignature.isValid())
+    if (signature() != "m" && subSignature.isValid())
     {
-      if (signalArity != subscriberArity)
+      if (sigArity != subArity)
       {
         std::stringstream s;
-        s << "Subscriber has incorrect arity (expected maximum "
-          << signalArity << " , got " << subscriberArity << ")";
+        s << "Subscriber has incorrect arity (expected "
+          << sigArity << " , got " << subArity << ")";
         throw std::runtime_error(s.str());
       }
-      if (!signature().isConvertibleTo(subscriberSignature))
+      if (!signature().isConvertibleTo(subSignature))
       {
         std::stringstream s;
         s << "Subscriber is not compatible to signal : "
-          << signature().toString() << " vs " << subscriberSignature.toString();
+          << signature().toString() << " vs " << subSignature.toString();
         throw std::runtime_error(s.str());
       }
     }

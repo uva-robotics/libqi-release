@@ -56,24 +56,24 @@ template<typename T>
 class DurationTypeInterface: public qi::IntTypeInterface
 {
 public:
-  using ImplType = qi::DefaultTypeImplMethods<T, qi::TypeByPointerPOD<T>>;
+  typedef qi::DefaultTypeImplMethods<T, qi::TypeByPointerPOD<T> > ImplType;
 
-  int64_t get(void* value) override
+  virtual int64_t get(void* value)
   {
     return boost::chrono::duration_cast<qi::Duration>(*((T*)ImplType::Access::ptrFromStorage(&value))).count();
   }
 
-  void set(void** storage, int64_t value) override
+  virtual void set(void** storage, int64_t value)
   {
     (*(T*)ImplType::Access::ptrFromStorage(storage)) = boost::chrono::duration_cast<T>(qi::Duration(value));
   }
 
-  unsigned int size() override
+  virtual unsigned int size()
   {
     return sizeof(qi::int64_t);
   }
 
-  bool isSigned() override
+  virtual bool isSigned()
   {
     return false;
   }
@@ -85,25 +85,25 @@ template <typename T>
 class TimePointTypeInterface: public qi::IntTypeInterface
 {
 public:
-  using ImplType = qi::DefaultTypeImplMethods<T, qi::TypeByPointerPOD<T>>;
-  int64_t get(void* value) override
+  typedef qi::DefaultTypeImplMethods<T, qi::TypeByPointerPOD<T> > ImplType;
+  virtual int64_t get(void* value)
   {
     T* tp = (T*)ImplType::Access::ptrFromStorage(&value);
     return tp->time_since_epoch().count();
   }
 
-  void set(void** storage, int64_t value) override
+  virtual void set(void** storage, int64_t value)
   {
     T* tp = (T*)ImplType::Access::ptrFromStorage(storage);
     *tp = T(qi::Duration(value));
   }
 
-  unsigned int size() override
+  virtual unsigned int size()
   {
     return sizeof(qi::int64_t);
   }
 
-  bool isSigned() override
+  virtual bool isSigned()
   {
     return false;
   }

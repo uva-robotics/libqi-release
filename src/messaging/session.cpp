@@ -102,7 +102,7 @@ namespace qi {
      { // Provide a nice message for backward compatibility
        qiLogVerbose() << e.what();
        qiLogWarning() << "Failed to obtain machineId, connection to service directory will not be reused for other services.";
-       p.setError(e.what());
+       p.setValue(0);
        return;
      }
      TransportSocketPtr s = _sdClient.socket();
@@ -327,9 +327,8 @@ namespace qi {
     else
       ret = p.metaCall(function, args, metacallType);
 
-    qi::Promise<AnyValue> promise;
-    promise.setOnCancel([ret](qi::Promise<AnyValue>&) mutable { ret.cancel(); });
-    ret.then(qi::bind(qi::detail::futureAdapter<qi::AnyValue>, _1, promise));
+    qi::Promise<AnyValue> promise(qi::PromiseNoop<AnyValue>);
+    qi::detail::futureAdapter(ret, promise);
     return promise.future();
   }
 

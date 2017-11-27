@@ -14,31 +14,33 @@ namespace qi
   template<typename T> class PointerTypeInterfaceImpl: public PointerTypeInterface
   {
   public:
-    TypeInterface* pointedType() override
+    TypeInterface* pointedType()
     {
       // Caching the result here is dangerous if T uses runtime factory.
       return typeOf<T>();
     }
-    PointerKind pointerKind() override { return Raw; }
-    AnyReference dereference(void* storage) override
+    PointerKind pointerKind() { return Raw; }
+    AnyReference dereference(void* storage)
     {
       // We are in DirectAccess mode, so storage is a T*.
       void* value = pointedType()->initializeStorage(storage);
       return AnyReference(pointedType(), value);
     }
 
-    void set(void** storage, AnyReference pointer) override
+    void set(void** storage, AnyReference pointer)
     {
       AnyReference obj = *pointer;
       *storage = obj.rawValue();
     }
 
-    void setPointee(void** storage, void* pointer) override
+    void setPointee(void** storage, void* pointer)
     {
       *storage = pointer;
     }
 
-    using TypeMethodsImpl = DefaultTypeImplMethods<T*, TypeByValue<T*>>;
+    typedef DefaultTypeImplMethods<T*,
+                                     TypeByValue<T*>
+                                     > TypeMethodsImpl;
     _QI_BOUNCE_TYPE_METHODS(TypeMethodsImpl);
   };
 
@@ -47,29 +49,29 @@ namespace qi
   template<typename T> class TypeSharedPointerImpl: public PointerTypeInterface
   {
   public:
-    TypeInterface* pointedType() override
+    TypeInterface* pointedType()
     {
       return typeOf<typename T::element_type>();
     }
-    PointerKind pointerKind() override { return Shared; }
-    AnyReference dereference(void* storage) override
+    PointerKind pointerKind() { return Shared; }
+    AnyReference dereference(void* storage)
     {
       T* ptr = (T*)ptrFromStorage(&storage);
       void *value = pointedType()->initializeStorage(ptr->get());
       return AnyReference(pointedType(), value);
     }
-    void set(void** storage, AnyReference pointer) override
+    void set(void** storage, AnyReference pointer)
     {
       T* ptr = (T*)ptrFromStorage(storage);
       T* otherPtr = (T*)pointer.rawValue();
       *ptr = *otherPtr;
     }
-    void setPointee(void** storage, void* pointer) override
+    void setPointee(void** storage, void* pointer)
     {
       // we can't do that as it means that we would take ownership of pointer
       throw std::runtime_error("cannot convert to shared_ptr");
     }
-    using Impl = DefaultTypeImplMethods<T, TypeByPointerPOD<T>>;
+    typedef DefaultTypeImplMethods<T, TypeByPointerPOD<T> > Impl;
      _QI_BOUNCE_TYPE_METHODS(Impl);
   };
 

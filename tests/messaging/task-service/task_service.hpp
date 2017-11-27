@@ -6,18 +6,17 @@
 class TaskImpl: public Task
 {
 public:
-  TaskImpl() = default;
+  TaskImpl() {}
   TaskImpl(const std::string& name, TaskGenerator* handler);
-
   std::string getName();
   std::string setParam(const std::string& p);
   std::string step(unsigned int arg);
   std::string getLastResult();
 private:
-  TaskGenerator* _handler = nullptr;
+  TaskGenerator* _handler;
   std::string    _name;
   std::string    _param;
-  unsigned int   _step = 0;
+  unsigned int   _step;
   std::string    _lastResult;
 };
 

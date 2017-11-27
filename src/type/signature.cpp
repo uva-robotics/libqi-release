@@ -4,7 +4,6 @@
 */
 #include <cstring>
 
-#include <qi/assert.hpp>
 #include <qi/signature.hpp>
 #include <qi/type/typeinterface.hpp>
 #include <qi/jsoncodec.hpp>
@@ -180,7 +179,7 @@ namespace qi {
         // [s] -> m should have a greater convertibility than [s] -> [m]
         childErr *= 1.0f - (1.0f - childRes) * 0.95f;
       }
-      QI_ASSERT(its==children().end() && itd==b.children().end()); // we already exited on size mismatch
+      assert(its==children().end() && itd==b.children().end()); // we already exited on size mismatch
     }
     else if (d != s)
       return 0.0f;

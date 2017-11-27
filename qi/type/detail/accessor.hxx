@@ -19,20 +19,20 @@ namespace qi
   {
     template<typename T, typename Void = void> struct Accessor
     {
-      using is_accessor = boost::false_type;
+      typedef boost::false_type is_accessor;
     };
     template<typename C, typename T> struct AccessorBase
     {
-      using is_accessor = boost::true_type;
-      using value_type = typename boost::remove_const<T>::type;
-      using class_type = C;
+      typedef boost::true_type is_accessor;
+      typedef typename boost::remove_const<T>::type value_type;
+      typedef C class_type;
     };
     // we must explicitely check for is_member_object_pointer because T C::*
     // can match functions also even if it may not make sense
     template<typename C, typename T> struct Accessor<T C::*, typename boost::enable_if<typename boost::is_member_object_pointer<T C::*> >::type >
     : public AccessorBase<C, T>
     {
-      using type = T C::*;
+      typedef T C::* type;
       static T& access(C* instance, type acc)
       {
         return *instance.*acc;
@@ -41,7 +41,7 @@ namespace qi
     template<typename C, typename T> struct Accessor<T& (C::*)()>
     : public AccessorBase<C, T>
     {
-      using type = T& (C::*)();
+      typedef T& (C::*type)();
       static T& access(C* instance, type acc)
       {
         return (*instance.*acc)();
@@ -50,7 +50,7 @@ namespace qi
     template<typename C, typename T> struct Accessor<T& (C::*)() const>
     : public AccessorBase<C, T>
     {
-      using type = T& (C::*)() const;
+      typedef T& (C::*type)() const;
       static T& access(C* instance, type acc)
       {
         return (*instance.*acc)();
@@ -59,7 +59,7 @@ namespace qi
     template<typename C, typename T> struct Accessor<T& (*)(C*)>
     : public AccessorBase<C, T>
     {
-      using type = T& (*)(C*);
+      typedef T& (*type)(C*);
       static T& access(C* instance, type acc)
       {
         return acc(instance);

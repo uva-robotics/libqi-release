@@ -12,10 +12,14 @@
 # include <queue>
 # include <boost/thread/recursive_mutex.hpp>
 # include <boost/asio.hpp>
+# ifdef WITH_SSL
 # include <boost/asio/ssl.hpp>
+# endif
 # include <qi/api.hpp>
 # include "message.hpp"
 # include <qi/url.hpp>
+# include "transportsocket.hpp"
+# include <qi/eventloop.hpp>
 # include "transportsocket.hpp"
 # include <qi/eventloop.hpp>
 # include "messagedispatcher.hpp"
@@ -34,7 +38,11 @@ namespace qi
     virtual void startReading();
     virtual qi::Url remoteEndpoint() const;
   private:
-    using SocketPtr = boost::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>>;
+#ifdef WITH_SSL
+    typedef boost::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket> > SocketPtr;
+#else
+    typedef boost::shared_ptr<boost::asio::ip::tcp::socket> SocketPtr;
+#endif
     void error(const std::string& erc);
     void onResolved(const boost::system::error_code& erc,
                     boost::asio::ip::tcp::resolver::iterator it,
@@ -51,13 +59,15 @@ namespace qi
     void _continueReading();
     bool _ssl;
     bool _sslHandshake;
+#ifdef WITH_SSL
     boost::asio::ssl::context _sslContext;
+#endif
    SocketPtr _socket;
 
     bool                _abort; // used to notify send callback sendCont that we are dead
 
     // data to rebuild message
-    qi::Message         _msg;
+    qi::Message        *_msg;
     bool                _connecting;
 
     boost::mutex        _sendQueueMutex; // protects _sendQueue, _sending and closing
@@ -68,7 +78,7 @@ namespace qi
 
   };
 
-  using TcpTransportSocketPtr = boost::shared_ptr<TcpTransportSocket>;
+  typedef boost::shared_ptr<TcpTransportSocket> TcpTransportSocketPtr;
 
 }
 

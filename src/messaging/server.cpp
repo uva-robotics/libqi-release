@@ -22,15 +22,15 @@ namespace qi {
     : _enforceAuth(enforceAuth)
     , _dying(false)
     , _defaultCallType(qi::MetaCallType_Queued)
-    , _newConnectionLink(_server.newConnection.connect(&Server::onTransportServerNewConnection, this, _1, true))
   {
+    _server.newConnection.connect(&Server::onTransportServerNewConnection, this, _1, true);
   }
 
   Server::~Server()
   {
     //we can call reset on server and socket they are only owned by us.
     //when it's close it's close
-    _server.newConnection.disconnect(_newConnectionLink);
+    _server.newConnection.disconnectAll();
     close();
     destroy();
   }
@@ -80,28 +80,13 @@ namespace qi {
     _authProviderFactory = factory;
   }
 
-  namespace server_private
+  static void sendCapabilities(TransportSocketPtr sock)
   {
-    static void sendCapabilities(TransportSocketPtr sock)
-    {
-      Message msg;
-      msg.setType(Message::Type_Capability);
-      msg.setService(Message::Service_Server);
-      msg.setValue(sock->localCapabilities(), typeOf<CapabilityMap>()->signature());
-      sock->send(msg);
-    }
-  } // server_private
-
-  void Server::connectMessageReady(const TransportSocketPtr& socket)
-  {
-    boost::recursive_mutex::scoped_lock sl(_socketsMutex);
-    auto& subscriber = _subscribers[socket];
-
-    QI_ASSERT(subscriber.messageReady == qi::SignalBase::invalidSignalLink &&
-           "Connecting a signal that already exists.");
-
-    subscriber.messageReady =
-        socket->messageReady.connect(&Server::onMessageReady, this, _1, socket).setCallType(MetaCallType_Direct);
+    Message msg;
+    msg.setType(Message::Type_Capability);
+    msg.setService(Message::Service_Server);
+    msg.setValue(sock->localCapabilities(), typeOf<CapabilityMap>()->signature());
+    sock->send(msg);
   }
 
   void Server::onTransportServerNewConnection(TransportSocketPtr socket, bool startReading)
@@ -115,15 +100,8 @@ namespace qi {
       socket->disconnect().async();
       return;
     }
-
-    auto inserted = _subscribers.insert(std::make_pair(socket, SocketSubscriber{}));
-    QI_ASSERT(inserted.second && "Socket insertion failed. Socket already exists.");
-
-    auto& subscriber = inserted.first->second;
-
-    QI_ASSERT(subscriber.disconnected == qi::SignalBase::invalidSignalLink && "Connecting a signal that already exists.");
-    subscriber.disconnected =
-        socket->disconnected.connect(&Server::onSocketDisconnected, this, socket, _1);
+    _sockets.push_back(socket);
+    socket->disconnected.connect(&Server::onSocketDisconnected, this, socket, _1);
 
     // If false : the socket is only being registered, and has already been authenticated. The connection
     // was made elsewhere.
@@ -137,12 +115,7 @@ namespace qi {
       socket->startReading();
     }
     else
-    {
-      QI_ASSERT(subscriber.messageReady == qi::SignalBase::invalidSignalLink &&
-             "Connecting a signal that already exists.");
-      subscriber.messageReady =
-          socket->messageReady.connect(&Server::onMessageReady, this, _1, socket).setCallType(MetaCallType_Direct);
-    }
+      socket->messageReady.connect(&Server::onMessageReady, this, _1, socket).setCallType(MetaCallType_Direct);
   }
 
   void Server::onMessageReadyNotAuthenticated(const Message &msg, TransportSocketPtr socket, AuthProviderPtr auth,
@@ -178,10 +151,9 @@ namespace qi {
       }
       else
       {
-        server_private::sendCapabilities(socket);
+        sendCapabilities(socket);
         qiLogVerbose() << "Authentication is not enforced. Skipping...";
-
-        connectMessageReady(socket);
+        socket->messageReady.connect(&Server::onMessageReady, this, _1, socket).setCallType(MetaCallType_Direct);
         onMessageReady(msg, socket);
       }
       return;
@@ -201,8 +173,7 @@ namespace qi {
     case AuthProvider::State_Done:
       qiLogVerbose() << "Client " << socket->remoteEndpoint().str() << " successfully authenticated.";
       socket->messageReady.disconnect(*oldSignal);
-      connectMessageReady(socket);
-      // no break, we know that authentication is done, send the response to the remote end
+      socket->messageReady.connect(&Server::onMessageReady, this, _1, socket).setCallType(MetaCallType_Direct);
     case AuthProvider::State_Cont:
       if (*first)
       {
@@ -248,8 +219,7 @@ namespace qi {
         if (msg.object() > Message::GenericObject_Main
           || msg.type() == Message::Type_Reply
           || msg.type() == Message::Type_Event
-          || msg.type() == Message::Type_Error
-          || msg.type() == Message::Type_Canceled)
+          || msg.type() == Message::Type_Error)
           return;
         // ... but only if the object id is >main
         qi::Message       retval(Message::Type_Error, msg.address());
@@ -267,14 +237,6 @@ namespace qi {
     obj->onMessage(msg, socket);
   }
 
-  void Server::disconnectSignals(const TransportSocketPtr& socket, const SocketSubscriber& subscriber)
-  {
-    socket->connected.disconnectAll();
-    socket->disconnected.disconnect(subscriber.disconnected);
-    socket->messageReady.disconnect(subscriber.messageReady);
-    socket->disconnect();
-  }
-
   void Server::close()
   {
     {
@@ -290,14 +252,19 @@ namespace qi {
 
     qiLogVerbose() << "Closing server...";
     {
-      const auto subscribersCopy = [&]
+      std::list<TransportSocketPtr> socketsCopy;
       {
         boost::recursive_mutex::scoped_lock sl(_socketsMutex);
-        return std::move(_subscribers);
-      }();
-
-      for (auto& pair : subscribersCopy)
-        disconnectSignals(pair.first, pair.second);
+        std::swap(_sockets, socketsCopy);
+      }
+      std::list<TransportSocketPtr>::iterator it;
+      //TODO move that logic into TransportServer
+      for (it = socketsCopy.begin(); it != socketsCopy.end(); ++it) {
+        (*it)->connected.disconnectAll();
+        (*it)->disconnected.disconnectAll();
+        (*it)->messageReady.disconnectAll();
+        (*it)->disconnect();
+      }
     }
     _server.close();
   }
@@ -340,19 +307,12 @@ namespace qi {
       }
 
       {
-        // Lock the mutex, erase the socket, and disconnect it outside the lock.
-        auto socketLocal = [&]()
         {
           boost::recursive_mutex::scoped_lock sl(_socketsMutex);
-          auto it = _subscribers.find(socket);
-          QI_ASSERT(it != _subscribers.end());
-          auto local = std::move(*it);
-          _subscribers.erase(it);
-          return local;
-        }();
-
-        if (socketLocal.first)
-          disconnectSignals(socketLocal.first, socketLocal.second);
+          std::list<TransportSocketPtr>::iterator it = std::find(_sockets.begin(), _sockets.end(), socket);
+          if (it != _sockets.end())
+            _sockets.erase(it);
+        }
       }
     }
   }
@@ -365,5 +325,6 @@ namespace qi {
   {
     _dying = false;
   }
+
 
 }

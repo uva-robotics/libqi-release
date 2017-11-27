@@ -34,7 +34,7 @@ namespace qi
 
   void DataPerf::stop() {
     _p->cpuElapsed = _p->cpuTime.elapsed();
-    using second = boost::chrono::duration<double, boost::ratio<1,1>>;
+    typedef boost::chrono::duration<double, boost::ratio<1,1> > second;
     _p->wallClockElapsed = qi::durationSince<second>(_p->fStartTime).count();
   }
 

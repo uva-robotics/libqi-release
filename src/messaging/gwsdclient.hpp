@@ -22,7 +22,7 @@ namespace qi
 {
 class Message;
 class TransportSocket;
-using TransportSocketPtr = boost::shared_ptr<TransportSocket>;
+typedef boost::shared_ptr<TransportSocket> TransportSocketPtr;
 
 class GwSDClient
 {
@@ -73,8 +73,8 @@ private:
                         boost::shared_ptr<int> initCount);
   void onMessageReady(const Message& msg);
 
-  using SetterFunc = void (*)(void*, const Message&, TransportSocketPtr);
-  using PromiseMap = std::map<unsigned int, std::pair<void*, SetterFunc> >;
+  typedef void (*SetterFunc)(void*, const Message&, TransportSocketPtr);
+  typedef std::map<unsigned int, std::pair<void*, SetterFunc> > PromiseMap;
   PromiseMap _promises;
   boost::mutex _promutex;
 };

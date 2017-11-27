@@ -32,13 +32,13 @@ namespace qi {
 
   class SignalBasePrivate;
 
-  using SignalLink = qi::uint64_t;
+  typedef qi::uint64_t SignalLink;
 
   //Signal are not copyable, they belong to a class.
   class QI_API SignalBase : boost::noncopyable
   {
   public:
-    using OnSubscribers = boost::function<void(bool)>;
+    typedef boost::function<void(bool)> OnSubscribers;
     explicit SignalBase(const Signature &signature, OnSubscribers onSubscribers = OnSubscribers());
     SignalBase(OnSubscribers onSubscribers=OnSubscribers());
     virtual ~SignalBase();
@@ -102,7 +102,7 @@ namespace qi {
     bool hasSubscribers();
     static const SignalLink invalidSignalLink;
   protected:
-    using Trigger = boost::function<void(const GenericFunctionParameters& params, MetaCallType callType)>;
+    typedef boost::function<void(const GenericFunctionParameters& params, MetaCallType callType)> Trigger;
     void callSubscribers(const GenericFunctionParameters& params, MetaCallType callType = MetaCallType_Auto);
     void setTriggerOverride(Trigger trigger);
     void setOnSubscribers(OnSubscribers onSubscribers);
@@ -128,7 +128,7 @@ namespace qi {
      * Will not be called when destructor is invoked and all subscribers are removed
     */
     SignalF(OnSubscribers onSubscribers = OnSubscribers());
-    using FunctionType = T;
+    typedef T FunctionType;
     virtual qi::Signature signature() const;
     using boost::function<T>::operator();
 
@@ -178,9 +178,9 @@ namespace qi {
   class Signal: public SignalF<void(P...)>
   {
   public:
-    typedef void(FunctionType)(P...); // FIXME: VS2013 fails if this is replaced by `using`
-    using ParentType = SignalF<FunctionType>;
-    using OnSubscribers = typename ParentType::OnSubscribers;
+    typedef void(FunctionType)(P...);
+    typedef SignalF<FunctionType> ParentType;
+    typedef typename ParentType::OnSubscribers OnSubscribers;
     Signal(OnSubscribers onSubscribers = OnSubscribers())
       : ParentType(onSubscribers) {}
     using boost::function<FunctionType>::operator();
@@ -266,7 +266,7 @@ namespace qi {
     // ExecutionContext on which to schedule the call
     ExecutionContext* executionContext;
   };
-  using SignalSubscriberPtr = boost::shared_ptr<SignalSubscriber>;
+  typedef boost::shared_ptr<SignalSubscriber> SignalSubscriberPtr;
 }
 
 #ifdef _MSC_VER

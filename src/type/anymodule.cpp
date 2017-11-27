@@ -12,19 +12,19 @@ qiLogCategory("qitype.package");
 namespace qi
 {
   // function called to init a module
-  using moduleInitFn = void (*)(ModuleBuilder*);
+  typedef void (*moduleInitFn)(ModuleBuilder*);
 
   // function called to init a module factory
-  using moduleFactoryPluginFn = void(*)(void);
+  typedef void(*moduleFactoryPluginFn)(void);
 
-  using AnyModuleMap = std::map<std::string, AnyModule>;
+  typedef std::map<std::string, AnyModule> AnyModuleMap;
 
   static boost::recursive_mutex* gMutexPkg      = NULL;
   static boost::recursive_mutex* gMutexLoading  = NULL;
   static AnyModuleMap*           gReadyPackages = NULL;
 
   /// Language -> Factory Function
-  using ModuleFactoryMap = std::map<std::string, ModuleFactoryFunctor>;
+  typedef std::map<std::string, ModuleFactoryFunctor> ModuleFactoryMap;
   ModuleFactoryMap               gModuleFactory;
 
   static void loadModuleFactoryPlugins() {
