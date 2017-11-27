@@ -26,7 +26,7 @@ namespace qi {
   namespace detail
   {
     void serialize(AnyReference val, BinaryEncoder& out, SerializeObjectCallback context, StreamContext* ctx);
-    void deserialize(AnyReference what, BinaryDecoder& in, DeserializeObjectCallback context, StreamContext* ctx);
+    AnyReference deserialize(AnyReference what, BinaryDecoder& in, DeserializeObjectCallback context, StreamContext* ctx);
     AnyReference deserialize(qi::TypeInterface *type, BinaryDecoder& in, DeserializeObjectCallback context, StreamContext* ctx);
   }
   class BinaryDecoder;
@@ -273,13 +273,13 @@ namespace qi {
     beginDynamic(sig);
 
     if (sig.isValid()) {
-      assert(value.type());
+      QI_ASSERT(value.type());
       if (!recurse)
         detail::serialize(value, *this, SerializeObjectCallback(), 0);
       else
         recurse();
     } else {
-      assert(!value.type());
+      QI_ASSERT(!value.type());
     }
     endDynamic();
   }
@@ -642,7 +642,7 @@ namespace qi {
         for (unsigned i = 0; i < sz; ++i)
         {
           AnyReference v = deserialize(elementType, in, context, streamContext);
-          result._append(v);
+          result.append(v);
           v.destroy();
         }
       }
@@ -664,7 +664,7 @@ namespace qi {
         {
           AnyReference k = deserialize(keyType, in, context, streamContext);
           AnyReference v = deserialize(elementType, in, context, streamContext);
-          result._insert(k, v);
+          result.insert(k, v);
           k.destroy();
           v.destroy();
         }
@@ -782,7 +782,7 @@ namespace qi {
       }
     }
 
-    void deserialize(AnyReference what, BinaryDecoder& in, DeserializeObjectCallback context, StreamContext* sctx)
+    AnyReference deserialize(AnyReference what, BinaryDecoder& in, DeserializeObjectCallback context, StreamContext* sctx)
     {
       detail::DeserializeTypeVisitor dtv(in, context, sctx);
       dtv.result = what;
@@ -792,18 +792,18 @@ namespace qi {
         ss << "ISerialization error " << BinaryDecoder::statusToStr(in.status());
         throw std::runtime_error(ss.str());
       }
+      return dtv.result;
     }
 
     AnyReference deserialize(qi::TypeInterface *type, BinaryDecoder& in, DeserializeObjectCallback context, StreamContext* sctx)
     {
       AnyReference res(type);
       try {
-        deserialize(res, in, context, sctx);
+        return deserialize(res, in, context, sctx);
       } catch (const std::runtime_error&) {
         res.destroy();
         throw;
       }
-      return res;
     }
 
   } // namespace detail
@@ -814,13 +814,13 @@ namespace qi {
     qi::typeDispatch(stv, gvp);
     if (be.status() != BinaryEncoder::Status::Ok) {
       std::stringstream ss;
-      ss << "OSerialization error " << static_cast<int>(be.status());
+      ss << "OSerialization error " << BinaryEncoder::statusToStr(be.status());
       qiLogError() << ss.str();
       throw std::runtime_error(ss.str());
     }
   }
 
-  void decodeBinary(qi::BufferReader *buf, qi::AnyReference gvp,
+  AnyReference decodeBinary(qi::BufferReader *buf, qi::AnyReference gvp,
     DeserializeObjectCallback onObject, StreamContext* sctx) {
     BinaryDecoder in(buf);
     detail::DeserializeTypeVisitor dtv(in, onObject, sctx);
@@ -828,10 +828,11 @@ namespace qi {
     qi::typeDispatch(dtv, dtv.result);
     if (in.status() != BinaryDecoder::Status::Ok) {
       std::stringstream ss;
-      ss << "ISerialization error " << static_cast<int>(in.status());
+      ss << "ISerialization error " << BinaryDecoder::statusToStr(in.status());
       qiLogError() << ss.str();
       throw std::runtime_error(ss.str());
     }
+    return dtv.result;
   }
 
 }

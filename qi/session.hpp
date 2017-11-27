@@ -26,8 +26,8 @@ namespace qi {
 
   class SessionPrivate;
   class AuthProvider;
-  typedef boost::shared_ptr<AuthProvider> AuthProviderPtr;
-  typedef std::map<std::string, AnyValue> CapabilityMap;
+  using AuthProviderPtr = boost::shared_ptr<AuthProvider>;
+  using CapabilityMap = std::map<std::string, AnyValue>;
 
   /** A Session allows you to interconnect services on the same machine or over
    * the network.
@@ -96,9 +96,10 @@ namespace qi {
     template <typename T>
     qi::FutureSync<T> callModule(const std::string& moduleName, const AnyReferenceVector& args = AnyReferenceVector())
     {
-      qi::Promise<T> promise(qi::PromiseNoop<T>);
+      qi::Promise<T> promise;
       qi::Future<qi::AnyValue> future = _callModule(moduleName, args, qi::MetaCallType_Queued);
-      qi::detail::futureAdapterVal(future, promise);
+      promise.setOnCancel([future](qi::Promise<T>&) mutable {future.cancel();}); // keeps the future alive
+      future.then(qi::bind(qi::detail::futureAdapterVal<T>, future, promise));
       return promise.future();
     }
 
@@ -154,7 +155,7 @@ QI_GEN(genCall)
         qi::MetaCallType metacallType);
   };
 
-  typedef boost::shared_ptr<Session> SessionPtr;
+  using SessionPtr = boost::shared_ptr<Session>;
 
   inline SessionPtr makeSession() { return boost::make_shared<qi::Session>(); }
 }

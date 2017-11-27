@@ -75,9 +75,19 @@ inline TypeKind AnyReferenceBase::kind() const
     return _type->kind();
 }
 
+inline AnyReference AnyReferenceBase::unwrap() const
+{
+  AnyReference res = *this;
+  while (res.kind() == TypeKind_Dynamic)
+  {
+    res = res.content();
+  }
+  return res;
+}
+
 template<TypeKind T> struct TypeOfKind {};
 
-#define TYPE_OF_KIND(k, t) template<> struct TypeOfKind<k> { typedef t type;}
+#define TYPE_OF_KIND(k, t) template<> struct TypeOfKind<k> { using type = t;}
 // Kind -> handler Type (IntTypeInterface, ListTypeInterface...)  accessor
 TYPE_OF_KIND(TypeKind_Int, IntTypeInterface);
 TYPE_OF_KIND(TypeKind_Float, FloatTypeInterface);
@@ -121,7 +131,7 @@ inline T AnyReferenceBase::to(const T&) const
 }
 
 QI_NORETURN QI_API void throwConversionFailure(
-    TypeInterface* from, TypeInterface* to);
+    TypeInterface* from, TypeInterface* to, const std::string& additionalMsg);
 
 template<typename T>
 inline T AnyReferenceBase::to() const
@@ -130,7 +140,7 @@ inline T AnyReferenceBase::to() const
   std::pair<AnyReference, bool> conv = convert(targetType);
   if (!conv.first._type)
   {
-    throwConversionFailure(_type, targetType);
+    throwConversionFailure(_type, targetType, ""); // no additional message
   }
   T result = *conv.first.ptr<T>(false);
   if (conv.second)
@@ -216,25 +226,57 @@ E& AnyReferenceBase::element(const K& key)
 template<typename K>
 AnyReference AnyReferenceBase::operator[](const K& key)
 {
-  return _element(AnyReferenceBase::from(key), true);
+  return operator[](AnyReferenceBase::from(key));
+}
+
+inline AnyReference AnyReferenceBase::operator[](const AnyReference& key)
+{
+  return _element(key, true, true);
+}
+
+template<typename K>
+AnyReference AnyReferenceBase::at(const K& key)
+{
+  // note that this implementation is currently not very useful
+  // (it does the same thing as the const version) and could be removed.
+  // In the future, AnyReferenceConst should be implemented to
+  // make the distinction between the two, and in this case
+  // this version of the function will have a real meaning.
+  return at(AnyReferenceBase::from(key));
+}
+
+template<typename K>
+AnyReference AnyReferenceBase::at(const K& key) const
+{
+  return at(AnyReferenceBase::from(key));
+}
+
+inline AnyReference AnyReferenceBase::at(const AnyReference& key)
+{
+  return _element(key, false, false);
+}
+
+inline AnyReference AnyReferenceBase::at(const AnyReference& key) const
+{
+  return const_cast<AnyReferenceBase*>(this)->at(key);
 }
 
 template<typename T>
 void AnyReferenceBase::append(const T& element)
 {
-  _append(AnyReference::from(element));
+  append(AnyReference::from(element));
 }
 
 template<typename K, typename V>
 void AnyReferenceBase::insert(const K& key, const V& val)
 {
-  _insert(AnyReference::from(key), AnyReference::from(val));
+  insert(AnyReference::from(key), AnyReference::from(val));
 }
 
 template<typename K>
 AnyReference AnyReferenceBase::find(const K& key)
 {
-  return _element(AnyReference::from(key), false);
+  return _element(AnyReference::from(key), false, false);
 }
 
 } // namespace detail

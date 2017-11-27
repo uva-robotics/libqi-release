@@ -73,7 +73,7 @@ struct _pending_msg_eraser
   qi::TransportSocketPtr target;
 };
 
-typedef boost::shared_ptr<bool> boolptr;
+using boolptr = boost::shared_ptr<bool>;
 }
 
 namespace qi
@@ -131,6 +131,11 @@ bool Gateway::listen(const Url& url)
   return _p->listen(url);
 }
 
+bool Gateway::setIdentity(const std::string& key, const std::string& crt)
+{
+  return _p->setIdentity(key, crt);
+}
+
 qi::Future<void> Gateway::attachToServiceDirectory(const Url& serviceDirectoryUrl)
 {
   return _p->connect(serviceDirectoryUrl);
@@ -142,7 +147,6 @@ GatewayPrivate::GatewayPrivate(bool ea)
 {
   _socketCache.init();
   _server.newConnection.connect(&GatewayPrivate::onClientConnection, this, _1);
-  _localServer.listen("tcp://127.0.0.1:0");
   _localServer.newConnection.connect(&GatewayPrivate::onLocalClientConnection, this, _1);
   _localClientAuthProviderFactory = boost::make_shared<NullAuthProviderFactory>();
 }
@@ -234,7 +238,7 @@ UrlVector GatewayPrivate::endpoints() const
 
 static UrlVector allAvailableInterfaces(bool includeLocalhost, unsigned int port, const std::string& protocol)
 {
-  typedef std::map<std::string, std::vector<std::string> > IfMap;
+  using IfMap = std::map<std::string, std::vector<std::string>>;
   std::map<std::string, std::vector<std::string> > interfaces = os::hostIPAddrs(false);
   std::vector<Url> result;
 
@@ -298,6 +302,11 @@ bool GatewayPrivate::listen(const Url& url)
   }
 }
 
+bool GatewayPrivate::setIdentity(const std::string& key, const std::string& crt)
+{
+  return _server.setIdentity(key, crt);
+}
+
 void GatewayPrivate::updateEndpoints(const qi::Url& url)
 {
   auto filteredUrls = allAvailableInterfaces(false, url.port(), url.protocol());
@@ -319,19 +328,19 @@ void GatewayPrivate::updateEndpoints(const qi::Url& url)
     {
       qiLogInfo() << "New address " << url.str() << ", trying to listen";
       _server.listen(url)
-          .thenR<void>(qi::bind(boost::function<void(GatewayPrivate*, qi::Future<void>)>(
-                                                                [url](GatewayPrivate* p, qi::Future<void> fut)
-                                                                {
-                                                                  if (fut.hasError())
-                                                                    qiLogWarning() << "Failed to listen on "
-                                                                                   << url.str() << ": " << fut.error();
-                                                                  else
-                                                                    qiLogWarning() << "Now listening on " << url.str();
-                                                                  std::lock_guard<std::mutex> _(p->_endpointsMutex);
-                                                                  p->_endpoints = p->_server.endpoints();
-                                                                }),
-                                                            this,
-                                                            _1));
+          .then(qi::bind(boost::function<void(GatewayPrivate*, qi::Future<void>)>(
+                                                         [url](GatewayPrivate* p, qi::Future<void> fut)
+                                                         {
+                                                           if (fut.hasError())
+                                                             qiLogWarning() << "Failed to listen on "
+                                                                            << url.str() << ": " << fut.error();
+                                                           else
+                                                             qiLogWarning() << "Now listening on " << url.str();
+                                                           std::lock_guard<std::mutex> _(p->_endpointsMutex);
+                                                           p->_endpoints = p->_server.endpoints();
+                                                         }),
+                                                     this,
+                                                     _1));
       _pendingListens.insert(url);
     }
     catch (std::exception& e)
@@ -459,7 +468,7 @@ Future<void> GatewayPrivate::unregisterServiceFromSD(ServiceId sid)
 
 void GatewayPrivate::sdConnectionRetry(const qi::Url& sdUrl, qi::Duration lastTimer)
 {
-  if (*_dying)
+  if (_dying.load())
     return;
 
   qi::Future<void> fut = connect(sdUrl);
@@ -492,7 +501,7 @@ void GatewayPrivate::sdConnectionRetry(const qi::Url& sdUrl, qi::Duration lastTi
 
 void GatewayPrivate::onServiceDirectoryDisconnected(TransportSocketPtr socket, const std::string& reason)
 {
-  if (*_dying)
+  if (_dying.load())
     return;
   connected.set(false);
   qiLogWarning() << "Lost connection to the ServiceDirectory: " << reason;
@@ -705,7 +714,7 @@ void GatewayPrivate::clientAuthenticationMessages(const Message& msg,
     break;
   default:
     qiLogError() << "Unknown state: " << state;
-    assert(false);
+    QI_ASSERT(false);
   case AuthProvider::State_Error:
   {
     std::stringstream builder;

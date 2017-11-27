@@ -22,7 +22,7 @@ namespace qi {
     VarArguments(const T& t) { _args.push_back(t); }
     VarArguments& operator()(const T& t) { _args.push_back(t);  return *this; }
 
-    typedef std::vector<T> VectorType;
+    using VectorType = std::vector<T>;
 
     VectorType &args()             { return _args; }
     const VectorType &args() const { return _args; }
@@ -38,7 +38,7 @@ namespace qi {
     VarArguments(const AutoAnyReference& t);
     VarArguments& operator()(const AutoAnyReference& t);
 
-    typedef std::vector<AnyValue> VectorType;
+    using VectorType = std::vector<AnyValue>;
 
     VectorType &args()             { return _args; }
     const VectorType &args() const { return _args; }
@@ -47,7 +47,7 @@ namespace qi {
     VectorType _args;
   };
 
-  typedef VarArguments<> AnyVarArguments;
+  using AnyVarArguments = VarArguments<>;
 }
 
 #include <qi/type/typeinterface.hpp>
@@ -139,7 +139,7 @@ namespace qi {
     AnyValueVector _args;
   };
 
-  typedef boost::function<AnyReference(const AnyReferenceVector&)> DynamicFunction;
+  using DynamicFunction = boost::function<AnyReference(const AnyReferenceVector&)>;
 
   /** Represents a generic callable function.
    * This class has value semantic.
@@ -235,7 +235,7 @@ QI_GEN(genCall)
     *
     */
     template<typename F>
-    static AnyFunction from(F func);
+    static AnyFunction from(F&& func);
     /// @return a AnyFunction binding instance to member function func
     template<typename F, typename C>
     static AnyFunction from(F func, C instance);

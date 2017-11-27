@@ -27,7 +27,7 @@
 # include <qi/preproc.hpp>
 
 /**
- * \def QI_API_DEPRECATED(x)
+ * \def QI_API_DEPRECATED
  * \brief Compiler flags to mark a function as deprecated. It will generate a
  *        compiler warning.
  */
@@ -39,6 +39,19 @@
 #  define QI_API_DEPRECATED
 #endif
 
+ /**
+ * \def QI_API_DEPRECATED_MSG(msg__)
+ * \brief Compiler flags to mark a function as deprecated. It will generate a
+ *        compiler warning.
+ * \param msg__  A message providing a workaround.
+ */
+#if defined(__GNUC__) && !defined(QI_NO_API_DEPRECATED)
+#  define QI_API_DEPRECATED_MSG(msg__) __attribute__((deprecated(#msg__)))
+#elif defined(_MSC_VER) && !defined(QI_NO_API_DEPRECATED)
+#  define QI_API_DEPRECATED_MSG(msg__) __declspec(deprecated(#msg__))
+#else
+#  define QI_API_DEPRECATED_MSG(msg__)
+#endif
 
 /**
  * \def QI_NORETURN
@@ -223,7 +236,7 @@ namespace qi {
   QI_DEPRECATE_MACRO(QI_DISALLOW_COPY_AND_ASSIGN)       \
   type(type const &);                                   \
   void operator=(type const &);                         \
-  typedef int _qi_not_clonable;                         \
+  using _qi_not_clonable = int;                         \
   template<typename U> friend struct ::qi::IsClonable
 
 

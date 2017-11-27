@@ -30,10 +30,10 @@ namespace qi {
     mob.addMethod("L", "registerEventWithSignature", "(IILs)", qi::Message::BoundObjectFunction_RegisterEventWithSignature);
     *mo = mob.metaObject();
 
-    assert(mo->methodId("registerEvent::(IIL)") == qi::Message::BoundObjectFunction_RegisterEvent);
-    assert(mo->methodId("unregisterEvent::(IIL)") == qi::Message::BoundObjectFunction_UnregisterEvent);
-    assert(mo->methodId("metaObject::(I)") == qi::Message::BoundObjectFunction_MetaObject);
-    assert(mo->methodId("registerEventWithSignature::(IILs)") == qi::Message::BoundObjectFunction_RegisterEventWithSignature);
+    QI_ASSERT(mo->methodId("registerEvent::(IIL)") == qi::Message::BoundObjectFunction_RegisterEvent);
+    QI_ASSERT(mo->methodId("unregisterEvent::(IIL)") == qi::Message::BoundObjectFunction_UnregisterEvent);
+    QI_ASSERT(mo->methodId("metaObject::(I)") == qi::Message::BoundObjectFunction_MetaObject);
+    QI_ASSERT(mo->methodId("registerEventWithSignature::(IILs)") == qi::Message::BoundObjectFunction_RegisterEventWithSignature);
 
     return mo;
   }
@@ -53,7 +53,8 @@ namespace qi {
     static qi::MetaObject* mo = nullptr;
     QI_ONCE(mo = createRemoteObjectSpecialMetaObject());
     setMetaObject(*mo);
-    setTransportSocket(socket);
+    if (socket)
+      setTransportSocket(socket);
     //fetchMetaObject should be called to make sure the metaObject is valid.
   }
 
@@ -66,7 +67,8 @@ namespace qi {
     , _self(makeDynamicAnyObject(this, false))
   {
     setMetaObject(metaObject);
-    setTransportSocket(socket);
+    if (socket)
+      setTransportSocket(socket);
   }
 
   RemoteObject::~RemoteObject()

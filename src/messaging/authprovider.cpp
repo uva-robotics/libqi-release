@@ -7,6 +7,7 @@
 #include <boost/make_shared.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
+#include <qi/assert.hpp>
 #include <qi/log.hpp>
 #include <qi/type/typeinterface.hpp>
 
@@ -21,43 +22,46 @@ namespace qi {
   const std::string AuthProvider::Error_Reason_Key = QiAuthPrefix + "err_reason";
   const std::string AuthProvider::State_Key = QiAuthPrefix + "state";
 
-  static CapabilityMap extractAuthData(const CapabilityMap& cmap)
+  namespace auth_provider_private
   {
-    CapabilityMap authData;
-    // Extract all capabilities related to authentication
-    for (CapabilityMap::const_iterator it = cmap.begin(), end = cmap.end(); it != end; ++it)
+    static CapabilityMap extractAuthData(const CapabilityMap& cmap)
     {
-      const std::string& key = it->first;
-      if (boost::algorithm::starts_with(key, QiAuthPrefix))
-        authData[key] = it->second;
-      else if (boost::algorithm::starts_with(key, AuthProvider::UserAuthPrefix))
-        authData[key.substr(AuthProvider::UserAuthPrefix.length(), std::string::npos)] = it->second;
+      CapabilityMap authData;
+      // Extract all capabilities related to authentication
+      for (CapabilityMap::const_iterator it = cmap.begin(), end = cmap.end(); it != end; ++it)
+      {
+        const std::string& key = it->first;
+        if (boost::algorithm::starts_with(key, QiAuthPrefix))
+          authData[key] = it->second;
+        else if (boost::algorithm::starts_with(key, AuthProvider::UserAuthPrefix))
+          authData[key.substr(AuthProvider::UserAuthPrefix.length(), std::string::npos)] = it->second;
+      }
+      return authData;
     }
-    return authData;
-  }
 
-  static CapabilityMap prepareAuthCaps(const CapabilityMap& data)
-  {
-    CapabilityMap result;
-
-    for (CapabilityMap::const_iterator it = data.begin(), end = data.end(); it != end; ++it)
+    static CapabilityMap prepareAuthCaps(const CapabilityMap& data)
     {
-      if (boost::algorithm::starts_with(it->first, QiAuthPrefix))
-        result[it->first] = it->second;
-      else
-        result[AuthProvider::UserAuthPrefix + it->first] = it->second;
+      CapabilityMap result;
+
+      for (CapabilityMap::const_iterator it = data.begin(), end = data.end(); it != end; ++it)
+      {
+        if (boost::algorithm::starts_with(it->first, QiAuthPrefix))
+          result[it->first] = it->second;
+        else
+          result[AuthProvider::UserAuthPrefix + it->first] = it->second;
+      }
+      return result;
     }
-    return result;
-  }
+  } // auth_provider_private
 
   CapabilityMap AuthProvider::processAuth(const CapabilityMap &authData)
   {
     CapabilityMap result;
 
-    result = extractAuthData(authData);
+    result = auth_provider_private::extractAuthData(authData);
     result = _processAuth(result);
-    assert(result.find(AuthProvider::State_Key) != result.end());
-    return prepareAuthCaps(result);
+    QI_ASSERT(result.find(AuthProvider::State_Key) != result.end());
+    return auth_provider_private::prepareAuthCaps(result);
   }
 
   AuthProviderPtr NullAuthProviderFactory::newProvider()
@@ -68,8 +72,8 @@ namespace qi {
   CapabilityMap NullAuthProvider::_processAuth(const CapabilityMap &authData)
   {
     CapabilityMap reply;
-
-    reply[State_Key] = AnyValue::from(State_Done);
+    const int state = State_Done;
+    reply[State_Key] = AnyValue::from(state);
     return reply;
   }
 

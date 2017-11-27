@@ -30,7 +30,6 @@
  *
  * \endverbatim
  */
-
 # define QI_API QI_LIB_API(qi)
 
 # define QI_API_LEVEL 2

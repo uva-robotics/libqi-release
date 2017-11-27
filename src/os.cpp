@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013 Aldebaran Robotics. All rights reserved.
+ * Copyright (c) 2012, 2013, 2015 Aldebaran Robotics. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be
  * found in the COPYING file.
  */
@@ -7,16 +7,35 @@
 #include <boost/chrono/chrono.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
-
+#include <boost/predef/os.h>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/thread/mutex.hpp>
 
+// Headers required for checking processes
+#if BOOST_OS_WINDOWS
+# include <Windows.h>
+# include <Psapi.h>
+# if _WIN32_WINNT >= 0x0602 //_WIN32_WINNT_WIN8
+#  include <Processthreadsapi.h>
+# else
+#  include <WinBase.h>
+# endif
+#elif BOOST_OS_MACOS
+# include <libproc.h>
+#endif // no header required on linux to check processes
+
 #include <qi/path.hpp>
 #include <qi/os.hpp>
 #include <qi/log.hpp>
 #include <qi/types.hpp>
+
+#include "sdklayout.hpp"
+
+#if BOOST_OS_ANDROID && BOOST_COMP_GNUC && BOOST_ARCH_ARM
+#include <sstream>
+#endif
 
 qiLogCategory("qi.os");
 
@@ -24,6 +43,19 @@ namespace bfs = boost::filesystem;
 
 namespace qi {
   namespace os {
+// workaround android gcc missing std::to_string on arm
+// http://stackoverflow.com/questions/17950814/how-to-use-stdstoul-and-stdstoull-in-android/18124627#18124627
+#if BOOST_OS_ANDROID && BOOST_COMP_GNUC && BOOST_ARCH_ARM
+#warning "using home made to_string"
+    std::string to_string(int num)
+    {
+      std::ostringstream stream;
+      stream << num;
+      return stream.str();
+    }
+#else
+      using std::to_string;
+#endif
 
     int64_t ustime()
     {
@@ -108,6 +140,111 @@ namespace qi {
       normalize_tv(&res);
 
       return res;
+    }
+
+    bool isProcessRunning(int pid, const std::string &fileName)
+    {
+      if (pid <= 0)
+        return false;
+
+      qiLogDebug() << "Checking if process #" << pid << " is running";
+      std::string commandLine;
+
+#if BOOST_OS_WINDOWS
+      HANDLE processHandle = OpenProcess(
+            PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, static_cast<DWORD>(pid));
+      if (!processHandle)
+        return false;
+      qiLogDebug() << "Got handle for process #" << pid;
+
+      DWORD exitCode = 0xFFFFFF;
+      if (!GetExitCodeProcess(processHandle, &exitCode))
+        return false;
+
+      if (exitCode != STILL_ACTIVE)
+        return false;
+
+      qiLogDebug() << "Process #" << pid << " is running";
+      if (fileName.empty())
+        return true;
+
+      qiLogDebug() << "Checking process name for #" << pid;
+      WCHAR winCommandLine[MAX_PATH];
+      DWORD clSize = GetProcessImageFileNameW(
+            processHandle, winCommandLine,
+            sizeof(winCommandLine) / sizeof(*winCommandLine));
+      CloseHandle(processHandle);
+
+      if(clSize <= 0)
+        return false;
+
+      commandLine = qi::Path::fromNative(winCommandLine).str();
+
+#elif BOOST_OS_MACOS
+      int numberOfProcesses = proc_listpids(PROC_ALL_PIDS, 0, NULL, 0);
+      if (numberOfProcesses == 0)
+      {
+        qiLogError() << "Cannot get number of processes";
+        return false;
+      }
+
+      std::vector<int> pids(numberOfProcesses, 0);
+      numberOfProcesses = proc_listpids(PROC_ALL_PIDS, 0, pids.data(), sizeof(int) * pids.size());
+      if (numberOfProcesses == 0)
+      {
+        qiLogError() << "Cannot get list of processes";
+        return false;
+      }
+
+      if (std::find(pids.begin(), pids.end(), pid) == pids.end())
+        return false;
+
+      if (fileName.empty())
+        return true;
+
+      char procPidPath[PROC_PIDPATHINFO_MAXSIZE];
+      int res = proc_pidpath(pid, procPidPath, sizeof(char) * PROC_PIDPATHINFO_MAXSIZE);
+      if (!res)
+      {
+        qiLogDebug() << "Failed to get process info: " << strerror(errno);
+        return false;
+      }
+
+      commandLine = procPidPath;
+
+#else // Linux
+      std::string pathInProc = "/proc/" + to_string(pid) + "/cmdline";
+
+      bool cmdLineFilePresentButEmpty = false;
+      do
+      {
+        boost::filesystem::ifstream file(pathInProc);
+        qiLogDebug() << "process #" << pid << " " << (file.is_open() ? "exists" : "does not exist");
+        if (!file)
+          return false;
+
+        if (fileName.empty())
+        {
+          file.close();
+          return true;
+        }
+
+        std::string buff;
+        file >> buff;
+        file.close();
+        commandLine.assign(buff.data(), std::strlen(buff.c_str()));
+
+        cmdLineFilePresentButEmpty = commandLine.empty();
+      }
+      while(cmdLineFilePresentButEmpty);
+#endif
+
+      qiLogDebug() << "process #" << pid << " full command was: " << commandLine;
+      const std::string actualProcessName = qi::Path(commandLine).filename();
+      qiLogDebug() << "process #" << pid << " executable was: "
+                   << actualProcessName << ", expected: "
+                   << (fileName + qi::path::detail::binSuffix());
+      return actualProcessName == (fileName + qi::path::detail::binSuffix());
     }
 
     /* getMachineId will return an uuid as a string.

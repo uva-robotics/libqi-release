@@ -31,14 +31,14 @@ namespace qi
     // get or create signal, or 0 if id is not an event
     SignalBase* createSignal(unsigned int id);
     PropertyBase* property(unsigned int id);
-    typedef std::map<unsigned int, std::pair<SignalBase*, bool> > SignalMap;
-    typedef std::map<unsigned int, std::pair<AnyFunction, MetaCallType> > MethodMap;
+    using SignalMap = std::map<unsigned int, std::pair<SignalBase*, bool>>;
+    using MethodMap = std::map<unsigned int, std::pair<AnyFunction, MetaCallType>>;
     SignalMap           signalMap;
     MethodMap           methodMap;
     MetaObject          meta;
     ObjectThreadingModel threadingModel;
 
-    typedef std::map<unsigned int, std::pair<PropertyBase*, bool> > PropertyMap;
+    using PropertyMap = std::map<unsigned int, std::pair<PropertyBase*, bool>>;
     PropertyMap propertyMap;
 
     ExecutionContext* getExecutionContext(
@@ -107,15 +107,15 @@ namespace qi
   {
   public:
     DynamicObjectTypeInterface() {}
-    virtual const MetaObject& metaObject(void* instance);
-    virtual qi::Future<AnyReference> metaCall(void* instance, AnyObject context, unsigned int method, const GenericFunctionParameters& params, MetaCallType callType, Signature returnSignature);
-    virtual void metaPost(void* instance, AnyObject context, unsigned int signal, const GenericFunctionParameters& params);
-    virtual qi::Future<SignalLink> connect(void* instance, AnyObject context, unsigned int event, const SignalSubscriber& subscriber);
+    const MetaObject& metaObject(void* instance) override;
+    qi::Future<AnyReference> metaCall(void* instance, AnyObject context, unsigned int method, const GenericFunctionParameters& params, MetaCallType callType, Signature returnSignature) override;
+    void metaPost(void* instance, AnyObject context, unsigned int signal, const GenericFunctionParameters& params) override;
+    qi::Future<SignalLink> connect(void* instance, AnyObject context, unsigned int event, const SignalSubscriber& subscriber) override;
     /// Disconnect an event link. Returns if disconnection was successful.
-    virtual qi::Future<void> disconnect(void* instance, AnyObject context, SignalLink linkId);
-    virtual const std::vector<std::pair<TypeInterface*, int> >& parentTypes();
-    virtual qi::Future<AnyValue> property(void* instance, AnyObject context, unsigned int id);
-    virtual qi::Future<void> setProperty(void* instance, AnyObject context, unsigned int id, AnyValue val);
+    qi::Future<void> disconnect(void* instance, AnyObject context, SignalLink linkId) override;
+    const std::vector<std::pair<TypeInterface*, int> >& parentTypes() override;
+    qi::Future<AnyValue> property(void* instance, AnyObject context, unsigned int id) override;
+    qi::Future<void> setProperty(void* instance, AnyObject context, unsigned int id, AnyValue val) override;
     _QI_BOUNCE_TYPE_METHODS(DefaultTypeImplMethods<DynamicObject>);
   };
 
@@ -283,22 +283,19 @@ namespace qi
     {
       auto prop = property(id);
       return ec->async([prop, val]{
-            // TODO make this async when setValue returns a futuresync
-            return prop->setValue(val.asReference());
-          });
+            return prop->setValue(val.asReference()).async();
+          }).unwrap();
     }
     else
     {
       try
       {
-        // TODO make this async when setValue returns a futuresync
-        property(id)->setValue(val.asReference());
+        return property(id)->setValue(val.asReference());
       }
       catch(const std::exception& e)
       {
         return qi::makeFutureError<void>(std::string("setProperty: ") + e.what());
       }
-      return qi::Future<void>(0);
     }
   }
 
@@ -317,12 +314,10 @@ namespace qi
     ExecutionContext* ec = _p->getExecutionContext(context, MetaCallType_Auto);
     if (ec)
       return ec->async([prop] {
-            // TODO make this async when setValue returns a futuresync
-            return prop->value();
-          });
+            return prop->value().async();
+          }).unwrap();
     else
-      // TODO make this async when setValue returns a futuresync
-      return qi::Future<AnyValue>(prop->value());
+      return prop->value();
   }
 
   static void reportError(qi::Future<AnyReference> fut) {
@@ -362,8 +357,8 @@ namespace qi
     if (l == SignalBase::invalidSignalLink)
       return qi::Future<SignalLink>(l);
     SignalLink link = ((SignalLink)event << 32) + l;
-    assert(link >> 32 == event);
-    assert((link & 0xFFFFFFFF) == l);
+    QI_ASSERT(link >> 32 == event);
+    QI_ASSERT((link & 0xFFFFFFFF) == l);
     qiLogDebug() << "New subscriber " << link <<" to event " << event;
     return qi::Future<SignalLink>(link);
   }
