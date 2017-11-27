@@ -1,0 +1,156 @@
+From 14df71eb0a8060a6e8040f419f9a3a1dfcc73994 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?S=C3=A9verin=20Lemaignan?=
+ <severin.lemaignan@plymouth.ac.uk>
+Date: Tue, 3 May 2016 14:49:00 +0100
+Subject: [PATCH 4/6] Fix compilation with boost 1.58
+
+Two issues:
+- bind overloading rules
+- strict type checking in boost::get()
+
+1.58 introduces strict type checking in boost::get(). Use relaxed_get()
+to get the old behavior. relaxed_get() didn't exist in older versions
+of Boost, so the code must check BOOST_VERSION.
+
+Closes #14
+---
+ qi/detail/futurebarrier.hpp              | 2 +-
+ src/eventloop.cpp                        | 6 +++---
+ src/messaging/objectregistrar.cpp        | 2 +-
+ src/messaging/remoteobject.cpp           | 4 ++--
+ src/messaging/servicedirectoryclient.cpp | 7 +++++++
+ src/messaging/sessionservice.cpp         | 5 +++++
+ 6 files changed, 19 insertions(+), 7 deletions(-)
+
+diff --git a/qi/detail/futurebarrier.hpp b/qi/detail/futurebarrier.hpp
+index 1e32ee6..8f59d7c 100644
+--- a/qi/detail/futurebarrier.hpp
++++ b/qi/detail/futurebarrier.hpp
+@@ -191,7 +191,7 @@ public:
+       throw std::runtime_error("Adding future to closed barrier");
+ 
+     ++(_p->_count);
+-    fut.connect(boost::bind<void>(&detail::FutureBarrierPrivate<T>::onFutureFinish, _p));
++    fut.connect(boost::bind(&detail::FutureBarrierPrivate<T>::onFutureFinish, _p));
+     _p->_futures.push_back(fut);
+   }
+ 
+diff --git a/src/eventloop.cpp b/src/eventloop.cpp
+index 12aa7d2..f8dde0d 100644
+--- a/src/eventloop.cpp
++++ b/src/eventloop.cpp
+@@ -349,7 +349,7 @@ namespace qi {
+ 
+ 
+       ++_totalTask;
+-      _io.post(boost::bind<void>(&EventLoopAsio::invoke_maybe, this, cb, id, p, erc));
++      _io.post(boost::bind(&EventLoopAsio::invoke_maybe, this, cb, id, p, erc));
+     }
+     else
+       asyncCall(delay, cb);
+@@ -376,7 +376,7 @@ namespace qi {
+       return prom.future();
+     }
+     Promise<void> prom(PromiseNoop<void>);
+-    _io.post(boost::bind<void>(&EventLoopAsio::invoke_maybe, this, cb, id, prom,erc));
++    _io.post(boost::bind(&EventLoopAsio::invoke_maybe, this, cb, id, prom,erc));
+     return prom.future();
+   }
+ 
+@@ -594,7 +594,7 @@ namespace qi {
+     ctx->target = this;
+     ctx->helper = helper;
+     ctx->maxDelay = maxDelay;
+-    ctx->promise = Promise<void>(boost::bind<void>(&monitor_cancel, _1, ctx));
++    ctx->promise = Promise<void>(boost::bind(&monitor_cancel, _1, ctx));
+     ctx->isFired = false;
+     ctx->ending = false;
+     monitor_ping(ctx);
+diff --git a/src/messaging/objectregistrar.cpp b/src/messaging/objectregistrar.cpp
+index b5dfe51..52004e2 100644
+--- a/src/messaging/objectregistrar.cpp
++++ b/src/messaging/objectregistrar.cpp
+@@ -158,7 +158,7 @@ namespace qi {
+     qi::Promise<unsigned int> prom;
+     qi::Future<unsigned int>  future;
+     future = _sdClient->registerService(si);
+-    future.connect(boost::bind<void>(&ObjectRegistrar::onFutureFinished, this, _1, id, prom));
++    future.connect(boost::bind(&ObjectRegistrar::onFutureFinished, this, _1, id, prom));
+ 
+     return prom.future();
+   };
+diff --git a/src/messaging/remoteobject.cpp b/src/messaging/remoteobject.cpp
+index 276702e..cd987a2 100644
+--- a/src/messaging/remoteobject.cpp
++++ b/src/messaging/remoteobject.cpp
+@@ -97,7 +97,7 @@ namespace qi {
+       // to a 'parent' object.
+       _linkMessageDispatcher = _socket->messagePendingConnect(_service,
+         TransportSocket::ALL_OBJECTS,
+-        boost::bind<void>(&RemoteObject::onMessagePending, this, _1));
++        boost::bind(&RemoteObject::onMessagePending, this, _1));
+       _linkDisconnected      = _socket->disconnected.connect (
+          &RemoteObject::onSocketDisconnected, this, _1);
+     }
+@@ -129,7 +129,7 @@ namespace qi {
+     qi::Promise<void> prom(qi::FutureCallbackType_Sync);
+     qi::Future<qi::MetaObject> fut =
+       _self.async<qi::MetaObject>("metaObject", 0U);
+-    fut.connect(boost::bind<void>(&RemoteObject::onMetaObject, this, _1, prom));
++    fut.connect(boost::bind(&RemoteObject::onMetaObject, this, _1, prom));
+     return prom.future();
+   }
+ 
+diff --git a/src/messaging/servicedirectoryclient.cpp b/src/messaging/servicedirectoryclient.cpp
+index f5cfef3..27aeb30 100644
+--- a/src/messaging/servicedirectoryclient.cpp
++++ b/src/messaging/servicedirectoryclient.cpp
+@@ -2,6 +2,8 @@
+ **  Copyright (C) 2012 Aldebaran Robotics
+ **  See COPYING for the license
+ */
++
++#include <boost/version.hpp>
+ #include "servicedirectoryclient.hpp"
+ #include <qi/type/objecttypebuilder.hpp>
+ #include "servicedirectory_p.hpp"
+@@ -106,7 +108,12 @@ namespace qi {
+       return;
+     }
+ 
++#if BOOST_VERSION < 105800
+     const Message& msg = boost::get<const Message&>(data);
++#else
++    const Message& msg = boost::relaxed_get<const Message&>(data);
++#endif
++
+     unsigned int function = msg.function();
+     bool failure = msg.type() == Message::Type_Error
+         || msg.service() != Message::Service_Server
+diff --git a/src/messaging/sessionservice.cpp b/src/messaging/sessionservice.cpp
+index bc23227..60d691f 100644
+--- a/src/messaging/sessionservice.cpp
++++ b/src/messaging/sessionservice.cpp
+@@ -9,6 +9,7 @@
+ # pragma warning(disable: 4355)
+ #endif
+ 
++#include <boost/version.hpp>
+ #include "sessionservice.hpp"
+ #include "servicedirectoryclient.hpp"
+ #include "objectregistrar.hpp"
+@@ -155,7 +156,11 @@ namespace qi {
+       return;
+     }
+ 
++#if BOOST_VERSION < 105800
+     const Message& msg = boost::get<const Message&>(data);
++#else
++    const Message& msg = boost::relaxed_get<const Message&>(data);
++#endif
+     int function = msg.function();
+     bool failure = msg.type() == Message::Type_Error
+         || msg.service() != Message::Service_Server
+-- 
+2.7.4
+

@@ -1,0 +1,59 @@
+From 55fbcf29b8ecb382766ed9765393bbebc8d0b2ee Mon Sep 17 00:00:00 2001
+From: Surya Ambrose <surya.ambrose@gmail.com>
+Date: Sat, 19 Mar 2016 16:30:01 +0100
+Subject: [PATCH 5/6] Fix linkage with boost 1.56 and lower
+
+This is required for debian Jessie (using boost 1.55)
+---
+ src/tailfileloghandler.cpp | 34 ++++++++++++++++++++++++++++++++++
+ 1 file changed, 34 insertions(+)
+
+diff --git a/src/tailfileloghandler.cpp b/src/tailfileloghandler.cpp
+index 0d6d9e5..98dc7f7 100644
+--- a/src/tailfileloghandler.cpp
++++ b/src/tailfileloghandler.cpp
+@@ -7,7 +7,41 @@
+ #include <qi/log/tailfileloghandler.hpp>
+ 
+ #include <boost/function.hpp>
++
++/*
++ * Boost introduced c++11 scoped_enum feature in 1.48 (at most).
++ * A fake one was added in case of compilation without c++11.
++ * When including boost/filesystem.hpp, if c++11 is activated, scoped_enum
++ * are used, but can only work if boost was also compiled with c++11.
++ * On the other hand, if c++11 is not activated, fake scoped_enum are used,
++ * but can only work if boost was compiled without c++11.
++ * This issue was reported in
++ * https://svn.boost.org/trac/boost/ticket/6124
++ * https://svn.boost.org/trac/boost/ticket/6779
++ * https://svn.boost.org/trac/boost/ticket/10038
++ * and fixed in boost 1.57
++ *
++ * libqi-2.5 is now compiled with C++11 activated. Because of this,
++ * boost/filesystem.hpp will add C++11 API, even if boost is not compiled
++ * with C++11, leading to a linkage error.
++ *
++ * Therefore we need to specifically ask for non-c++11 API, but only for
++ * boost versions lower than 1.57 (as the bug is solved in later versions.
++ *
++ */
++
++#if BOOST_VERSION < 105700
++#  ifndef BOOST_NO_CXX11_SCOPED_ENUMS
++#    define BOOST_NO_CXX11_SCOPED_ENUMS
++#    define REMOVE_BOOST_NO_CXX11_SCOPED_ENUMS
++#  endif
++#endif
+ #include <boost/filesystem.hpp>
++#if defined(BOOST_NO_CXX11_SCOPED_ENUMS) && defined(REMOVE_BOOST_NO_CXX11_SCOPED_ENUMS)
++#  undef BOOST_NO_CXX11_SCOPED_ENUMS
++#  undef REMOVE_BOOST_NO_CXX11_SCOPED_ENUMS
++#endif
++
+ #include <boost/bind.hpp>
+ 
+ #include <iomanip>
+-- 
+2.7.4
+
