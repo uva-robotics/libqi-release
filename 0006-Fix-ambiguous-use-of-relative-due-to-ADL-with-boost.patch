@@ -1,7 +1,7 @@
-From 05a89cec2ba3b98a3c7598e0419ffd166b47c6a5 Mon Sep 17 00:00:00 2001
+From 7263021da7dc75a1f5f7e15c0f72e5161e600028 Mon Sep 17 00:00:00 2001
 From: Surya Ambrose <surya.ambrose@gmail.com>
 Date: Mon, 27 Nov 2017 23:27:23 +0100
-Subject: [PATCH 6/6] Fix ambiguous use of "relative()" due to ADL with boost
+Subject: [PATCH 6/7] Fix ambiguous use of "relative()" due to ADL with boost
 
 ---
  src/sdklayout-boost.cpp | 2 +-

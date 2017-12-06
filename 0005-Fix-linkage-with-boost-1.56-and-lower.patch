@@ -1,7 +1,7 @@
-From 55fbcf29b8ecb382766ed9765393bbebc8d0b2ee Mon Sep 17 00:00:00 2001
+From 6ae6fc8beb128cc9795ec02b2c7929e4966d092e Mon Sep 17 00:00:00 2001
 From: Surya Ambrose <surya.ambrose@gmail.com>
 Date: Sat, 19 Mar 2016 16:30:01 +0100
-Subject: [PATCH 5/6] Fix linkage with boost 1.56 and lower
+Subject: [PATCH 5/7] Fix linkage with boost 1.56 and lower
 
 This is required for debian Jessie (using boost 1.55)
 ---

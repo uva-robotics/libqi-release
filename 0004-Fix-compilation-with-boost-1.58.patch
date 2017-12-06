@@ -1,8 +1,8 @@
-From 14df71eb0a8060a6e8040f419f9a3a1dfcc73994 Mon Sep 17 00:00:00 2001
+From e6915380a56a5b16287e642f0129790d8dbab620 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?S=C3=A9verin=20Lemaignan?=
  <severin.lemaignan@plymouth.ac.uk>
 Date: Tue, 3 May 2016 14:49:00 +0100
-Subject: [PATCH 4/6] Fix compilation with boost 1.58
+Subject: [PATCH 4/7] Fix compilation with boost 1.58
 
 Two issues:
 - bind overloading rules
